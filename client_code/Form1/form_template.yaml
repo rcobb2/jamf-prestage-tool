@@ -1,12 +1,50 @@
 components:
 - layout_properties: {grid_position: 'EELJAF,ZCMBDE'}
   name: label_1
-  properties: {text: 'Computer:'}
+  properties: {text: 'Search for a computer:'}
   type: Label
 - event_bindings: {pressed_enter: text_box_1_pressed_enter}
-  layout_properties: {grid_position: 'EVMQFW,VPEEFO'}
+  layout_properties: {grid_position: 'FXOEXU,UDCEGA'}
   name: text_box_1
   properties: {}
   type: TextBox
+- layout_properties: {grid_position: 'LEOBOH,KHSFGG'}
+  name: spacer_1
+  properties: {height: 32}
+  type: Spacer
+- layout_properties: {grid_position: 'LZJTPA,PJLBJK'}
+  name: CompName
+  properties: {text: 'Computer Name:'}
+  type: Label
+- layout_properties: {grid_position: 'LZJTPA,IYJVNY'}
+  name: cName
+  properties: {}
+  type: Label
+- layout_properties: {grid_position: 'YQVQKO,BMJMWO'}
+  name: compSN
+  properties: {text: 'Computer Serial Number:'}
+  type: Label
+- layout_properties: {grid_position: 'YQVQKO,VXJXWJ'}
+  name: cSN
+  properties: {}
+  type: Label
+- layout_properties: {grid_position: 'BMKNKN,NGUAPD'}
+  name: compAsset
+  properties: {text: 'Computer Asset:'}
+  type: Label
+- layout_properties: {grid_position: 'BMKNKN,YIZAPJ'}
+  name: cAsset
+  properties: {}
+  type: Label
+- layout_properties: {grid_position: 'BLBQSE,HRIVCV'}
+  name: label_5
+  properties:
+    text: |
+      Computer ID:
+  type: Label
+- layout_properties: {grid_position: 'BLBQSE,HKGACG'}
+  name: cID
+  properties: {}
+  type: Label
 container: {type: ColumnPanel}
 is_package: true

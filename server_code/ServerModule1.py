@@ -19,8 +19,13 @@ import xml.etree.ElementTree as ET
 CLIENTID = '8945c5b1-caef-4223-9561-ebd25c4e71f8'
 CLIENTSECRET ='nYUUrj1J0BdnDMht_0Lx9XaT-rkQbAZpvNYqbvoci0A1QlVsQ9cTGaRpdpwe7wCF'
 URL = 'https://colgate.jamfcloud.com/'
+
 @anvil.server.callable
-def get_access_token(URL, CLIENTID, CLIENTSECRET):
+def get_access_token():
+    CLIENTID = '8945c5b1-caef-4223-9561-ebd25c4e71f8'
+    CLIENTSECRET ='nYUUrj1J0BdnDMht_0Lx9XaT-rkQbAZpvNYqbvoci0A1QlVsQ9cTGaRpdpwe7wCF'
+    URL = 'https://colgate.jamfcloud.com/'
+    
     auth_url = f"{URL}/api/oauth/token"
     headers = {
         'Content-Type': 'application/x-www-form-urlencoded'
@@ -39,11 +44,11 @@ def get_access_token(URL, CLIENTID, CLIENTSECRET):
     current_epoch = int(time.time())
     token_expiration_epoch = current_epoch + token_expires_in - 1
 
-    return access_token, token_expiration_epoch
+    return access_token
 
 @anvil.server.callable
 def get_computer_id(compInfo):
-    access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)  
+    access_token = get_access_token()  
     endpoint = f"{URL}/JSSResource/computers/match/{compInfo}"
     headers = {
         'Authorization': f'Bearer {access_token}',
@@ -53,10 +58,13 @@ def get_computer_id(compInfo):
     xmldata = req.text
     root = ET.fromstring(xmldata)
     computer = root.find('computer')
+    compName = computer.find('name').text
     compID = computer.find('id').text
     compSN = computer.find('serial_number').text
     compAsset = computer.find('asset_tag').text
-    return compID, compSN, compAsset, computer   
+    return compName, compID, compSN, compAsset    
+    
+
 @anvil.server.callable
 def get_computer_prestage(URL, access_token, compSN):
     endpoint = f"{URL}/api/v2/computer-prestages/scope"
