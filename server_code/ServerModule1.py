@@ -63,7 +63,7 @@ def add_to_computer_prestage(compSN, targetPrestageName):
         rData2 = (f"Error adding {compSN} from prestage {targetPrestageName}. Status Code: {resp}")
         return rData2
     else:
-        rData2 = print(f"{compSN} added to prestage {targetprestageID}")
+        rData2 =(f"{compSN} added to prestage {targetPrestageName}")
         return rData2
 
 @anvil.server.callable
