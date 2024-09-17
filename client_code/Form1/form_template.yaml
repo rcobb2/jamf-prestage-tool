@@ -86,12 +86,7 @@ components:
 - event_bindings: {click: rplPre_click}
   layout_properties: {grid_position: 'DOHUUJ,TPAQCK'}
   name: rplPre
-  properties: {background: '#e1ff00', text: Replace Prestage}
-  type: Button
-- event_bindings: {click: addPre_click}
-  layout_properties: {grid_position: 'DOHUUJ,CWSTIQ'}
-  name: addPre
-  properties: {background: '#00ff2a', bold: true, italic: false, text: Add to Prestage}
+  properties: {background: '#37ff00', text: Add to Prestage}
   type: Button
 container: {type: ColumnPanel}
 is_package: true
