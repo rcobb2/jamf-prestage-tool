@@ -16,6 +16,13 @@ class Form1(Form1Template):
         "classroom prestage",
         "faculty/staff prestage",
     ]
+    self.preloadBuilding.items = [
+        "100HA", "Alana", "Alum", "Arena", "Base", "Bent", "Bern", "Bookstore",
+        "Bryan", "Burke", "Case", "Cooley", "Coop", "Curtis", "Dana", "DLMC",
+        "Drake", "East", "Hasc", "Ho", "Hunt", "JBC", "JCC", "Keck", "Lath",
+        "Lawr", "Ledge", "Litt", "Mcgr", "Ocon", "Olin", "Pers", "Pinch",
+        "Reid", "Ryan", "Sanford", "Sap", "Security", "Serp", "Wynn"
+    ]
     self.prestageID.visible = False
     self.prestageName.visible = False
     self.pID.visible = False
@@ -26,8 +33,8 @@ class Form1(Form1Template):
   
   def text_box_1_pressed_enter(self, **event_args):
     """This method is called when the user presses Enter in this text box"""
-    compName, compID, compSN, compAsset, prestageID, prestageName = anvil.server.call('get_target_computer', self.text_box_1.text)
-    #tokentest = anvil.server.call('get_target_computer', self.text_box_1.text)
+    compName, compID, compSN, compAsset, prestageID, prestageName, id, un, ea, building, room, at = anvil.server.call('get_target_computer', self.text_box_1.text)
+    
     self.cName.text = f"{compName}"
     self.cSN.text = f"{compSN}"
     self.cAsset.text = f"{compAsset}"
@@ -44,8 +51,16 @@ class Form1(Form1Template):
       self.prestageName.visible = False
       self.pID.visible = False
       self.pName.visible = False
-      self.pName.text = "0"
-
+      self.pName.text = ""
+      self.pID.text = ""
+      
+    self.preloadSN.text = f"{compSN}"
+    self.preloadUN.text = f"{un}"
+    self.preloadEA.text = f"{ea}"
+    self.preloadBuilding.selected_value = f"{building}"
+    self.preloadRoom.text = f"{room}"
+    self.preloadAT.text = f"{at}"
+  
   def rmvPre_click(self, **event_args):
     """This method is called when the button is clicked"""
     c = confirm(f"Do you wish to remove {self.cName.text} from {self.pName.text}?")

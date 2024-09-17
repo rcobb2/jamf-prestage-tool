@@ -172,7 +172,6 @@ def get_prestage_name(prestageID):
         prestageName = prestageID2Name[prestageID]
         return prestageName
     else:
-        print(f"Prestage ID {prestageID} is not a valid prestage ID")
         return 0
 
 @anvil.server.callable
@@ -183,58 +182,35 @@ def get_target_computer(compInfo):
     print("compInfo success")  
     prestageID, prestageName = get_computer_prestage(URL, access_token, compSN)
     print("prestageInfo success")
-  
-    return compName, compID, compSN, compAsset, prestageID, prestageName 
-  
+    id, un, ea, building, room, at = get_inventory_preload(compSN)
+    return compName, compID, compSN, compAsset, prestageID, prestageName, id, un, ea, building, room, at
+    print("preloadsuccess")
 @anvil.server.callable
 def get_inventory_preload(compSN):
-  access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
-  endpoint = F"{URL}/api/v2/inventory-preload/records?page=0&page-size=100&sort=id%3Aasc&filter=serialNumber%3D%3D%22{compSN}%22"
-  headers = {
+    access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
+    endpoint = F"{URL}/api/v2/inventory-preload/records?page=0&page-size=100&sort=id%3Aasc&filter=serialNumber%3D%3D%22{compSN}%22"
+    headers = {
         'Authorization': f'Bearer {access_token}',
         'Content-Type': 'application/json'
         }
-  req = requests.get(endpoint, headers=headers)
-  respdata = req.json()
-  preloadID = respdata['id']
-  print(preloadID)
-  
-"""
-@anvil.server.callable
-def get_action():
-    actions = {
-        "1": "Remove from prestage",
-        "2": "Add to prestage",
-        "3": "Replace prestage",
-        "4": "Exit"
-    }
-    print("Select an operation to perform on the target machine:")
-    for key, value in actions.items():
-        print(f"{key}: {value}")
-
-    action = input()
-
-    if action in actions:
-        #action = actions[action]
-        return action
+    req = requests.get(endpoint, headers=headers)
+    resp = req.status_code
+    if resp == 200:
+      respdata = req.json()
+      results = respdata['results']
+      for result in results:
+        id = result['id']
+        un = result['username']
+        ea = result['emailAddress']
+        building = result['building']
+        room = result['room']
+        at = result['assetTag']
+        return id, un, ea, building, room, at
     else:
-        print(f"Invalid action {action}")
-        return get_action()
-@anvil.server.callable
-def do_action(action, access_token, compID, compSN, prestageID):
-      match action:
-        case "1":
-            return remove_from_computer_prestage(URL, access_token, compSN, prestageID)
-        case "2":
-            targetprestageID, targetPrestageName = get_prestageID()
-            return add_to_computer_prestage(URL, access_token, compSN, targetprestageID, targetPrestageName)
-        case "3":
-            targetprestageID, targetPrestageName = get_prestageID()
-            remove_from_computer_prestage(URL, access_token, compSN, prestageID)
-            return add_to_computer_prestage(URL, access_token, compSN, targetprestageID, targetPrestageName)
-        case "4":
-            return "Null"
-        case _:
-            print("Unknown action")
-            return "Null"
-"""
+      id = "Not Found" 
+      un = "Not Found"
+      ea = "Not Found"
+      building = "Not Found" 
+      room = "Not Found" 
+      at = "Not Found"
+      return id, un, ea, building, room, at

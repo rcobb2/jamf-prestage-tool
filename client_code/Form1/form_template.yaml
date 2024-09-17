@@ -92,5 +92,61 @@ components:
   name: rplPre
   properties: {background: '#37ff00', text: Add to Prestage}
   type: Button
+- layout_properties: {grid_position: 'JDVLTX,VXXVIL'}
+  name: spacer_3
+  properties: {height: 32}
+  type: Spacer
+- layout_properties: {grid_position: 'KTKFIG,TBVWCT'}
+  name: label_4
+  properties: {align: center, bold: true, font_size: 32, text: 'Preloader information:'}
+  type: Label
+- layout_properties: {grid_position: 'PFONBR,RXQGOA'}
+  name: label_5
+  properties: {text: 'Serial Number:'}
+  type: Label
+- layout_properties: {grid_position: 'PFONBR,YLOLLY'}
+  name: preloadSN
+  properties: {}
+  type: TextBox
+- layout_properties: {grid_position: 'KKMZKP,OHKGNK'}
+  name: label_6
+  properties: {text: 'Username:'}
+  type: Label
+- layout_properties: {grid_position: 'KKMZKP,OPZRXL'}
+  name: preloadUN
+  properties: {}
+  type: TextBox
+- layout_properties: {grid_position: 'MKAFJO,VMZXRS'}
+  name: label_8
+  properties: {text: 'Email Address:'}
+  type: Label
+- layout_properties: {grid_position: 'MKAFJO,UHCCZT'}
+  name: preloadEA
+  properties: {}
+  type: TextBox
+- layout_properties: {grid_position: 'OYORES,QSAXJY'}
+  name: label_9
+  properties: {text: 'Building:'}
+  type: Label
+- layout_properties: {grid_position: 'OYORES,UVDTKA'}
+  name: preloadBuilding
+  properties: {}
+  type: DropDown
+- layout_properties: {grid_position: 'NKARKM,ICJTXR'}
+  name: label_10
+  properties: {text: 'Room:'}
+  type: Label
+- layout_properties: {grid_position: 'NKARKM,WXWBAY'}
+  name: preloadRoom
+  properties: {}
+  type: TextBox
+- layout_properties: {grid_position: 'AQGDRV,NBCUKZ'}
+  name: label_7
+  properties: {text: 'Asset Tag:'}
+  type: Label
+- layout_properties: {grid_position: 'AQGDRV,QQTUVN'}
+  name: preloadAT
+  properties: {}
+  type: TextBox
 container: {type: ColumnPanel}
 is_package: true
