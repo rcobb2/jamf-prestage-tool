@@ -39,6 +39,12 @@ class Form1(Form1Template):
       self.pName.visible = True
       self.pID.text = f"{prestageID}"
       self.pName.text = f"{prestageName}"
+    else:
+      self.prestageID.visible = False
+      self.prestageName.visible = False
+      self.pID.visible = False
+      self.pName.visible = False
+      self.pName.text = "0"
 
   def rmvPre_click(self, **event_args):
     """This method is called when the button is clicked"""
@@ -54,7 +60,7 @@ class Form1(Form1Template):
     """This method is called when the button is clicked"""
     c = confirm("Do you wish to continue?")
     if c == True:
-      if self.pID.text != "0":
+      if self.pName.text != "0":
         rData = anvil.server.call('remove_from_computer_prestage', self.cSN.text, self.pID.text)
         targetPrestageName = self.drop_down_1.selected_value
         rData2 = anvil.server.call('add_to_computer_prestage', self.cSN.text, targetPrestageName)  
