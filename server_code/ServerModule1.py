@@ -4,6 +4,9 @@ import time
 import json
 import xml.etree.ElementTree as ET
 
+CLIENTID = '8945c5b1-caef-4223-9561-ebd25c4e71f8'
+CLIENTSECRET ='nYUUrj1J0BdnDMht_0Lx9XaT-rkQbAZpvNYqbvoci0A1QlVsQ9cTGaRpdpwe7wCF'
+URL = 'https://colgate.jamfcloud.com/'
 
 """
 @anvil.server.callable
@@ -122,7 +125,7 @@ def get_access_token(URL, CLIENTID, CLIENTSECRET):
     #token_expiration_epoch = current_epoch + token_expires_in - 1
 
     return access_token
-"""
+
 @anvil.server.callable
 def get_computer_id(URL, access_token, compInfo):
     endpoint = f"{URL}/JSSResource/computers/match/{compInfo}"
@@ -173,18 +176,17 @@ def get_prestage_name(prestageID):
     else:
         print(f"Prestage ID {prestageID} is not a valid prestage ID")
         return 0
-"""
 
 @anvil.server.callable
 def get_target_computer(compInfo):
     access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
     print("Token Success")
-    #compName, compID, compSN, compAsset = get_computer_id(URL, access_token, compInfo)
-    #print("compInfo success")  
-    #prestageID, prestageName = get_computer_prestage(URL, access_token, compSN)
-    #print("prestageInfo success")
+    compName, compID, compSN, compAsset = get_computer_id(URL, access_token, compInfo)
+    print("compInfo success")  
+    prestageID, prestageName = get_computer_prestage(URL, access_token, compSN)
+    print("prestageInfo success")
   
-    return access_token #, compName, compID, compSN, compAsset, prestageID, prestageName 
+    return compName, compID, compSN, compAsset, prestageID, prestageName 
   
 """
 @anvil.server.callable
