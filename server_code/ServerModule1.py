@@ -47,8 +47,7 @@ def get_access_token():
     return access_token
 
 @anvil.server.callable
-def get_computer_id(compInfo):
-    access_token = get_access_token()  
+def get_computer_id(URL, access_token, compInfo ):
     endpoint = f"{URL}/JSSResource/computers/match/{compInfo}"
     headers = {
         'Authorization': f'Bearer {access_token}',
@@ -187,19 +186,11 @@ def get_prestage_name(prestageID):
         print(f"Prestage ID {prestageID} is not a valid prestage ID")
         return 0
 @anvil.server.callable
-def get_target_computer():
+def get_target_computer(compInfo):
     access_token, token_expiration_epoch = get_access_token(URL, CLIENTID, CLIENTSECRET)
-    compInfo = input("Enter computer info: ")
-    compID, compSN, compAsset = get_computer_id(URL, access_token, compInfo)
+    compName, compID, compSN, compAsset = get_computer_id(URL, access_token, compInfo)
     prestageID, prestageName = get_computer_prestage(URL, access_token, compSN)
 
-    print("Computer Found:")
-    print(f"Computer ID: {compID}")
-    print(f"Computer Serial Number: {compSN}")
-    print(f"Computer Asset Tag: {compAsset}")
-    print(f"Prestage ID: {prestageID}")
-    print(f"Prestage Name: {prestageName}")
-    
     return access_token, token_expiration_epoch, compID, compSN, compAsset, prestageID, prestageName 
 @anvil.server.callable
 def get_action():
