@@ -1,12 +1,9 @@
 import anvil.server
 import requests
-#import time
-#import json
-#import xml.etree.ElementTree as ET
+import time
+import json
+import xml.etree.ElementTree as ET
 
-CLIENTID = '8945c5b1-caef-4223-9561-ebd25c4e71f8'
-CLIENTSECRET ='nYUUrj1J0BdnDMht_0Lx9XaT-rkQbAZpvNYqbvoci0A1QlVsQ9cTGaRpdpwe7wCF'
-URL = 'https://colgate.jamfcloud.com/'
 
 """
 @anvil.server.callable
