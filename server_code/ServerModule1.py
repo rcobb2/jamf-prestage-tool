@@ -186,6 +186,19 @@ def get_target_computer(compInfo):
   
     return compName, compID, compSN, compAsset, prestageID, prestageName 
   
+@anvil.server.callable
+def get_inventory_preload(compSN):
+  access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
+  endpoint = F"{URL}/api/v2/inventory-preload/records?page=0&page-size=100&sort=id%3Aasc&filter=serialNumber%3D%3D%22{compSN}%22"
+  headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+        }
+  req = requests.get(endpoint, headers=headers)
+  respdata = req.json()
+  preloadID = respdata['id']
+  print(preloadID)
+  
 """
 @anvil.server.callable
 def get_action():
