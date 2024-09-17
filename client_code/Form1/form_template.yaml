@@ -130,7 +130,7 @@ components:
   type: Label
 - layout_properties: {grid_position: 'OYORES,UVDTKA'}
   name: preloadBuilding
-  properties: {}
+  properties: {include_placeholder: true, placeholder: Building....}
   type: DropDown
 - layout_properties: {grid_position: 'NKARKM,ICJTXR'}
   name: label_10
@@ -148,5 +148,11 @@ components:
   name: preloadAT
   properties: {}
   type: TextBox
+- data_bindings: []
+  event_bindings: {click: button_1_click}
+  layout_properties: {full_width_row: false, grid_position: 'MUCDMO,JIMAIZ'}
+  name: button_1
+  properties: {background: '#37ff00', bold: true, font_size: 18, text: Update preload}
+  type: Button
 container: {type: ColumnPanel}
 is_package: true

@@ -194,11 +194,12 @@ def get_inventory_preload(compSN):
         'Content-Type': 'application/json'
         }
     req = requests.get(endpoint, headers=headers)
-    resp = req.status_code
-    if resp == 200:
-      respdata = req.json()
-      results = respdata['results']
-      for result in results:
+    respdata = req.json()
+    results = respdata['results']
+    if not results:
+        return None, None, None, None, None, None
+      
+    for result in results:
         id = result['id']
         un = result['username']
         ea = result['emailAddress']
@@ -206,11 +207,27 @@ def get_inventory_preload(compSN):
         room = result['room']
         at = result['assetTag']
         return id, un, ea, building, room, at
-    else:
-      id = "Not Found" 
-      un = "Not Found"
-      ea = "Not Found"
-      building = "Not Found" 
-      room = "Not Found" 
-      at = "Not Found"
-      return id, un, ea, building, room, at
+
+@anvil.server.callable
+def update_inventory_preload(id, compSN, un, ea, building, room, at):
+  access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
+  endpoint = F"{URL}/api/v2/inventory-preload/records/{id}"
+  payload = {
+    "deviceType" : "Computer",
+    "serialNumber": {compSN},
+    "username": {un},
+    "emailAddress": {ea},
+    "bulding": {building},
+    "room": {room},
+    "assetTag": {at}
+  }
+  headers = {
+    'Authorization': f'Bearer {access_token}',
+    'Content-Type': 'application/json',
+    'accept': 'application/json'
+  }
+  req = requests.put(endpoint, json=payload, headers=headers)
+  print(req.text)
+  return 
+  
+  
