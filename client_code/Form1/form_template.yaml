@@ -62,17 +62,19 @@ components:
   name: pName
   properties: {}
   type: Label
-- layout_properties: {grid_position: 'DOHUUJ,TCANBW'}
+- event_bindings: {click: rmvPre_click}
+  layout_properties: {grid_position: 'DOHUUJ,TCANBW'}
   name: rmvPre
-  properties: {text: Remove from Prestage}
+  properties: {background: '#fb2d2d', bold: true, text: Remove from Prestage}
   type: Button
-- layout_properties: {grid_position: 'DOHUUJ,TPAQCK'}
-  name: button_2
-  properties: {text: button_2}
+- event_bindings: {click: rplPre_click}
+  layout_properties: {grid_position: 'DOHUUJ,TPAQCK'}
+  name: rplPre
+  properties: {background: '#e1ff00', text: Replace Prestage}
   type: Button
-- layout_properties: {grid_position: 'DOHUUJ,BUGCZG'}
-  name: button_3
-  properties: {text: Add to Prestage}
+- layout_properties: {grid_position: 'DOHUUJ,CWSTIQ'}
+  name: addPre
+  properties: {background: '#00ff2a', bold: true, italic: false, text: Add to Prestage}
   type: Button
 container: {type: ColumnPanel}
 is_package: true

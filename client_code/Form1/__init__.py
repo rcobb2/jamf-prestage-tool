@@ -19,4 +19,12 @@ class Form1(Form1Template):
     self.cID.text = f"{compID}"
     self.pID.text = f"{prestageID}"
     self.pName.text = f"{prestageName}"
-    
+
+  def rmvPre_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    rData = anvil.server.call('remove_from_computer_prestage', self.cSN.text, self.pID.text)
+    alert(f"{rData}")
+
+  def rplPre_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    rData = anvil.server.call('replace_computer_prestage', )

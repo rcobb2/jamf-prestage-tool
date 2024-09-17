@@ -8,7 +8,6 @@ CLIENTID = '8945c5b1-caef-4223-9561-ebd25c4e71f8'
 CLIENTSECRET ='nYUUrj1J0BdnDMht_0Lx9XaT-rkQbAZpvNYqbvoci0A1QlVsQ9cTGaRpdpwe7wCF'
 URL = 'https://colgate.jamfcloud.com/'
 
-"""
 @anvil.server.callable
 def get_prestage_versionLock(URL, access_token, prestageID):
     endpoint = f"{URL}/api/v3/computer-prestages/{prestageID}"
@@ -22,7 +21,8 @@ def get_prestage_versionLock(URL, access_token, prestageID):
     return verLock
 
 @anvil.server.callable
-def remove_from_computer_prestage(URL, access_token, compSN, prestageID):
+def remove_from_computer_prestage(compSN, prestageID):
+    access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
     verLock = get_prestage_versionLock(URL, access_token, prestageID)
     endpoint = f"{URL}/api/v1/computer-prestages/{prestageID}/scope"
     headers = {
@@ -36,11 +36,11 @@ def remove_from_computer_prestage(URL, access_token, compSN, prestageID):
     req = requests.delete(endpoint, json=payload, headers=headers)
     resp = req.status_code
     if resp != 200:
-        print(f"Error removing {compSN} from prestage {prestageID}. Status Code: {resp}")
-        return False
+        rData = (f"Error removing {compSN} from prestage {prestageID}. Status Code: {resp}")
+        return rData
     else:
-        print(f"{compSN} removed from prestage {prestageID}")
-        return True
+        rData=(f"{compSN} removed from prestage {prestageID}")
+        return rData
 
 @anvil.server.callable
 def add_to_computer_prestage(URL, access_token, compSN, targetprestageID, targetPrestageName):
@@ -65,8 +65,8 @@ def add_to_computer_prestage(URL, access_token, compSN, targetprestageID, target
         return True
 
 @anvil.server.callable
-def replace_computer_prestage(URL, access_token, compSN, prestageID):
-    
+def replace_computer_prestage(compSN, prestageID):
+    access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
     verLock = get_prestage_versionLock(URL, access_token, prestageID)
     endpoint = f"{URL}/api/v2/computer-prestages/{prestageID}/scope"
     headers = {
@@ -103,7 +103,7 @@ def get_prestageID():
     else:
         print(f"{targetPrestageName.lower()} is not a valid prestage name")
         return 0
-"""
+
 @anvil.server.callable
 def get_access_token(URL, CLIENTID, CLIENTSECRET):
     auth_url = f"{URL}/api/oauth/token"
