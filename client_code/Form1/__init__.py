@@ -16,7 +16,10 @@ class Form1(Form1Template):
         "classroom prestage",
         "faculty/staff prestage",
     ]
- 
+    self.prestageID.visible = False
+    self.prestageName.visible = False
+    self.pID.visible = False
+    self.pName.visible = False
     
     self.init_components(**properties)
     # Any code you write here will run before the form opens.
@@ -29,9 +32,13 @@ class Form1(Form1Template):
     self.cSN.text = f"{compSN}"
     self.cAsset.text = f"{compAsset}"
     self.cID.text = f"{compID}"
-    if prestageID != "0":
-    self.pID.text = f"{prestageID}"
-    self.pName.text = f"{prestageName}"
+    if prestageName != 0:
+      self.prestageID.visible = True
+      self.prestageName.visible = True
+      self.pID.visible = True
+      self.pName.visible = True
+      self.pID.text = f"{prestageID}"
+      self.pName.text = f"{prestageName}"
 
   def rmvPre_click(self, **event_args):
     """This method is called when the button is clicked"""
@@ -41,6 +48,8 @@ class Form1(Form1Template):
       alert(f"{rData}")
     else:
       return
+  
+  
   def rplPre_click(self, **event_args):
     """This method is called when the button is clicked"""
     c = confirm("Do you wish to continue?")
