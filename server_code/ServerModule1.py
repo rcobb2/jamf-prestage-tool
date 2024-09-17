@@ -4,78 +4,11 @@ import time
 import json
 import xml.etree.ElementTree as ET
 
-# This is a server module. It runs on the Anvil server,
-# rather than in the user's browser.
-#
-# To allow anvil.server.call() to call functions here, we mark
-# them with @anvil.server.callable.
-# Here is an example - you can replace it with your own:
-#
-# @anvil.server.callable
-# def say_hello(name):
-#   print("Hello, " + name + "!")
-#   return 42
-#
 CLIENTID = '8945c5b1-caef-4223-9561-ebd25c4e71f8'
 CLIENTSECRET ='nYUUrj1J0BdnDMht_0Lx9XaT-rkQbAZpvNYqbvoci0A1QlVsQ9cTGaRpdpwe7wCF'
 URL = 'https://colgate.jamfcloud.com/'
 
-@anvil.server.callable
-def get_access_token():
-    CLIENTID = '8945c5b1-caef-4223-9561-ebd25c4e71f8'
-    CLIENTSECRET ='nYUUrj1J0BdnDMht_0Lx9XaT-rkQbAZpvNYqbvoci0A1QlVsQ9cTGaRpdpwe7wCF'
-    URL = 'https://colgate.jamfcloud.com/'
-    
-    auth_url = f"{URL}/api/oauth/token"
-    headers = {
-        'Content-Type': 'application/x-www-form-urlencoded'
-    }
-    body_params = {
-        'client_id': CLIENTID,
-        'grant_type': 'client_credentials',
-        'client_secret': CLIENTSECRET
-    }
-
-    response = requests.post(auth_url, headers=headers, data=body_params)
-    response_data = response.json()
-
-    access_token = response_data.get('access_token')
-    token_expires_in = response_data.get('expires_in')
-    current_epoch = int(time.time())
-    token_expiration_epoch = current_epoch + token_expires_in - 1
-
-    return access_token
-
-@anvil.server.callable
-def get_computer_id(URL, access_token, compInfo ):
-    endpoint = f"{URL}/JSSResource/computers/match/{compInfo}"
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/xml'
-        }
-    req = requests.get(endpoint, headers=headers)
-    xmldata = req.text
-    root = ET.fromstring(xmldata)
-    computer = root.find('computer')
-    compName = computer.find('name').text
-    compID = computer.find('id').text
-    compSN = computer.find('serial_number').text
-    compAsset = computer.find('asset_tag').text
-    return compName, compID, compSN, compAsset    
-    
-
-@anvil.server.callable
-def get_computer_prestage(URL, access_token, compSN):
-    endpoint = f"{URL}/api/v2/computer-prestages/scope"
-    headers = {
-        'Authorization': f'Bearer {access_token}',
-        'Content-Type': 'application/json'
-        }
-    req = requests.get(endpoint, headers=headers)
-    respdata = req.json()
-    prestageID = respdata["serialsByPrestageId"].get(compSN)
-    prestageName = get_prestage_name(prestageID)
-    return prestageID, prestageName
+"""
 @anvil.server.callable
 def get_prestage_versionLock(URL, access_token, prestageID):
     endpoint = f"{URL}/api/v3/computer-prestages/{prestageID}"
@@ -87,6 +20,7 @@ def get_prestage_versionLock(URL, access_token, prestageID):
     respdata = req.json()
     verLock = respdata['versionLock']
     return verLock
+
 @anvil.server.callable
 def remove_from_computer_prestage(URL, access_token, compSN, prestageID):
     verLock = get_prestage_versionLock(URL, access_token, prestageID)
@@ -107,6 +41,7 @@ def remove_from_computer_prestage(URL, access_token, compSN, prestageID):
     else:
         print(f"{compSN} removed from prestage {prestageID}")
         return True
+
 @anvil.server.callable
 def add_to_computer_prestage(URL, access_token, compSN, targetprestageID, targetPrestageName):
     verLock = get_prestage_versionLock(URL, access_token, targetprestageID)
@@ -128,6 +63,7 @@ def add_to_computer_prestage(URL, access_token, compSN, targetprestageID, target
     else:
         print(f"{compSN} added to prestage {targetprestageID}")
         return True
+
 @anvil.server.callable
 def replace_computer_prestage(URL, access_token, compSN, prestageID):
     
@@ -144,6 +80,7 @@ def replace_computer_prestage(URL, access_token, compSN, prestageID):
     req = requests.put(endpoint, json=payload, headers=headers)
     resp = req.json()
     return resp
+
 @anvil.server.callable
 def get_prestageID():
     prestageNames2ID = {
@@ -166,6 +103,60 @@ def get_prestageID():
     else:
         print(f"{targetPrestageName.lower()} is not a valid prestage name")
         return 0
+"""
+@anvil.server.callable
+def get_access_token(URL, CLIENTID, CLIENTSECRET):
+    auth_url = f"{URL}/api/oauth/token"
+    headers = {
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+    body_params = {
+        'client_id': CLIENTID,
+        'grant_type': 'client_credentials',
+        'client_secret': CLIENTSECRET
+    }
+
+    response = requests.post(auth_url, headers=headers, data=body_params)
+    response_data = response.json()
+
+    access_token = response_data.get('access_token')
+    #token_expires_in = response_data.get('expires_in')
+    #current_epoch = int(time.time())
+    #token_expiration_epoch = current_epoch + token_expires_in - 1
+
+    return access_token
+
+@anvil.server.callable
+def get_computer_id(URL, access_token, compInfo):
+    endpoint = f"{URL}/JSSResource/computers/match/{compInfo}"
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/xml'
+        }
+    req = requests.get(endpoint, headers=headers)
+    xmldata = req.text
+    root = ET.fromstring(xmldata)
+    computer = root.find('computer')
+    compName = computer.find('name').text
+    compID = computer.find('id').text
+    compSN = computer.find('serial_number').text
+    compAsset = computer.find('asset_tag').text
+    return compName, compID, compSN, compAsset       
+
+@anvil.server.callable
+def get_computer_prestage(URL, access_token, compSN):
+    endpoint = f"{URL}/api/v2/computer-prestages/scope"
+    headers = {
+        'Authorization': f'Bearer {access_token}',
+        'Content-Type': 'application/json'
+        }
+    req = requests.get(endpoint, headers=headers)
+    respdata = req.json()
+    prestageID = respdata["serialsByPrestageId"].get(compSN)
+    prestageName = get_prestage_name(prestageID)
+    return prestageID, prestageName
+
+
 @anvil.server.callable
 def get_prestage_name(prestageID):
     prestageID2Name = {
@@ -185,14 +176,19 @@ def get_prestage_name(prestageID):
     else:
         print(f"Prestage ID {prestageID} is not a valid prestage ID")
         return 0
+
 @anvil.server.callable
 def get_target_computer(compInfo):
-    access_token, token_expiration_epoch = get_access_token(URL, CLIENTID, CLIENTSECRET)
+    access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
+    print("Token Success")
     compName, compID, compSN, compAsset = get_computer_id(URL, access_token, compInfo)
+    print("compInfo success")  
     prestageID, prestageName = get_computer_prestage(URL, access_token, compSN)
-
+    print("prestageInfo success")
+  
     return access_token, compName, compID, compSN, compAsset, prestageID, prestageName 
   
+"""
 @anvil.server.callable
 def get_action():
     actions = {
@@ -230,3 +226,4 @@ def do_action(action, access_token, compID, compSN, prestageID):
         case _:
             print("Unknown action")
             return "Null"
+"""

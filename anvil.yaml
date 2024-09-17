@@ -1,6 +1,7 @@
 allow_embedding: false
-name: Classic 1
-package_name: Classic_1
+metadata: {description: JAMF Prestage Tool, title: JAMF Prestage Tool}
+name: JAMF Prestage Tool
+package_name: JAMF_Prestage_Tool
 runtime_options:
   client_version: '3'
   server_spec: {base: python310-standard}
