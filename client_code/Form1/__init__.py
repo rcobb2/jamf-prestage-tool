@@ -6,6 +6,18 @@ import anvil.server
 class Form1(Form1Template):
   def __init__(self, **properties):
     # Set Form properties and Data Bindings.
+    self.drop_down_1.items = [
+       "first-time user prestage",
+        "classroom test",
+        "ous prestage",
+        "transfer prestage test",
+        "labs prestage",
+        "loaner prestage",
+        "classroom prestage",
+        "faculty/staff prestage",
+    ]
+ 
+    
     self.init_components(**properties)
     # Any code you write here will run before the form opens.
   
@@ -17,14 +29,33 @@ class Form1(Form1Template):
     self.cSN.text = f"{compSN}"
     self.cAsset.text = f"{compAsset}"
     self.cID.text = f"{compID}"
+    if prestageID != "0":
     self.pID.text = f"{prestageID}"
     self.pName.text = f"{prestageName}"
 
   def rmvPre_click(self, **event_args):
     """This method is called when the button is clicked"""
-    rData = anvil.server.call('remove_from_computer_prestage', self.cSN.text, self.pID.text)
-    alert(f"{rData}")
-
+    c = confirm(f"Do you wish to remove {self.cName.text} from {self.pName.text}?")
+    if c == True:
+      rData = anvil.server.call('remove_from_computer_prestage', self.cSN.text, self.pID.text)
+      alert(f"{rData}")
+    else:
+      return
   def rplPre_click(self, **event_args):
     """This method is called when the button is clicked"""
-    rData = anvil.server.call('replace_computer_prestage', )
+    c = confirm("Do you wish to continue?")
+    if c == True:
+      if self.pID.text != "0":
+        rData = anvil.server.call('remove_from_computer_prestage', self.cSN.text, self.pID.text)
+        targetPrestageName = self.drop_down_1.selected_value
+        rData2 = anvil.server.call('add_to_computer_prestage', self.cSN.text, targetPrestageName)  
+      else:
+        targetPrestageName = self.drop_down_1.selected_value
+        rData2 = anvil.server.call('add_to_computer_prestage', self.cSN.text, targetPrestageName)  
+    else:
+      return
+
+  def addPre_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    c = confirm(f"Do you wish to add {self.cName.text} to {self.pName.text}?")
+    

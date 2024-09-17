@@ -43,7 +43,9 @@ def remove_from_computer_prestage(compSN, prestageID):
         return rData
 
 @anvil.server.callable
-def add_to_computer_prestage(URL, access_token, compSN, targetprestageID, targetPrestageName):
+def add_to_computer_prestage(compSN, targetPrestageName):
+    access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
+    targetprestageID = get_prestageID(targetPrestageName)
     verLock = get_prestage_versionLock(URL, access_token, targetprestageID)
     endpoint = f"{URL}/api/v2/computer-prestages/{targetprestageID}/scope"
     headers = {
@@ -58,11 +60,11 @@ def add_to_computer_prestage(URL, access_token, compSN, targetprestageID, target
     req = requests.post(endpoint, json=payload, headers=headers)
     resp = req.status_code
     if resp != 200:
-        print(f"Error adding {compSN} from prestage {targetPrestageName}. Status Code: {resp}")
-        return False
+        rData2 = (f"Error adding {compSN} from prestage {targetPrestageName}. Status Code: {resp}")
+        return rData2
     else:
-        print(f"{compSN} added to prestage {targetprestageID}")
-        return True
+        rData2 = print(f"{compSN} added to prestage {targetprestageID}")
+        return rData2
 
 @anvil.server.callable
 def replace_computer_prestage(compSN, prestageID):
@@ -82,7 +84,7 @@ def replace_computer_prestage(compSN, prestageID):
     return resp
 
 @anvil.server.callable
-def get_prestageID():
+def get_prestageID(targetPrestageName):
     prestageNames2ID = {
         "first-time user prestage" : 9,
         "classroom test" : 8,
@@ -93,15 +95,11 @@ def get_prestageID():
         "classroom prestage" : 3,
         "faculty/staff prestage" : 2,
     }
-    for key, value in prestageNames2ID.items():
-        print(f"{key}: {value}")
-
     #targetPrestageName = input("Enter the name of the prestage you want to assign this machine to: ")
     if targetPrestageName.lower() in prestageNames2ID:
         targetprestageID = prestageNames2ID[targetPrestageName.lower()]
-        return targetprestageID, targetPrestageName
+        return targetprestageID
     else:
-        print(f"{targetPrestageName.lower()} is not a valid prestage name")
         return 0
 
 @anvil.server.callable
