@@ -159,7 +159,7 @@ def get_prestageID():
     for key, value in prestageNames2ID.items():
         print(f"{key}: {value}")
 
-    targetPrestageName = input("Enter the name of the prestage you want to assign this machine to: ")
+    #targetPrestageName = input("Enter the name of the prestage you want to assign this machine to: ")
     if targetPrestageName.lower() in prestageNames2ID:
         targetprestageID = prestageNames2ID[targetPrestageName.lower()]
         return targetprestageID, targetPrestageName
@@ -191,7 +191,8 @@ def get_target_computer(compInfo):
     compName, compID, compSN, compAsset = get_computer_id(URL, access_token, compInfo)
     prestageID, prestageName = get_computer_prestage(URL, access_token, compSN)
 
-    return access_token, token_expiration_epoch, compID, compSN, compAsset, prestageID, prestageName 
+    return access_token, compName, compID, compSN, compAsset, prestageID, prestageName 
+  
 @anvil.server.callable
 def get_action():
     actions = {

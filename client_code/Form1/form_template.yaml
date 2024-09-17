@@ -48,18 +48,18 @@ components:
   type: Label
 - layout_properties: {grid_position: 'WKRQSE,VWROFE'}
   name: prestageID
-  properties: {}
+  properties: {text: 'Prestage ID:'}
   type: Label
 - layout_properties: {grid_position: 'WKRQSE,BFYFAL'}
-  name: label_3
+  name: pID
   properties: {}
   type: Label
 - layout_properties: {grid_position: 'OWIBSR,RLISDF'}
   name: prestageName
-  properties: {}
+  properties: {text: Prestage Name}
   type: Label
 - layout_properties: {grid_position: 'OWIBSR,VPKCCZ'}
-  name: label_6
+  name: pName
   properties: {}
   type: Label
 container: {type: ColumnPanel}

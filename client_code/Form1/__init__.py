@@ -11,9 +11,12 @@ class Form1(Form1Template):
   
   def text_box_1_pressed_enter(self, **event_args):
     """This method is called when the user presses Enter in this text box"""
-    compName, compID, compSN, compAsset = anvil.server.call('get_computer_id', self.text_box_1.text)
-    prestageID, prestageName = anvil.server.call('get_prestage_name', compSN)
+    compName, compID, compSN, compAsset, prestageID, prestageName = anvil.server.call('get_target_computer', self.text_box_1.text)
+    
     self.cName.text = f"{compName}"
     self.cSN.text = f"{compSN}"
     self.cAsset.text = f"{compAsset}"
     self.cID.text = f"{compID}"
+    self.pID.text = f"{prestageID}"
+    self.pName.text = f"{prestageName}"
+    
