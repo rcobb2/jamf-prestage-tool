@@ -211,23 +211,28 @@ def get_inventory_preload(compSN):
 @anvil.server.callable
 def update_inventory_preload(id, compSN, un, ea, building, room, at):
   access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
-  endpoint = F"{URL}/api/v2/inventory-preload/records/{id}"
   payload = {
-    "deviceType" : "Computer",
-    "serialNumber": {compSN},
-    "username": {un},
-    "emailAddress": {ea},
-    "bulding": {building},
-    "room": {room},
-    "assetTag": {at}
+    "deviceType": "Computer",
+    "serialNumber": compSN,
+    "username": un,
+    "emailAddress": ea,
+    "building": building,
+    "room": room,
+    "assetTag": at
   }
   headers = {
     'Authorization': f'Bearer {access_token}',
     'Content-Type': 'application/json',
     'accept': 'application/json'
   }
-  req = requests.put(endpoint, json=payload, headers=headers)
-  print(req.text)
-  return 
-  
+  if id != "None":
+    endpoint = f"{URL}/api/v2/inventory-preload/records/{id}"
+    req = requests.put(endpoint, json=payload, headers=headers)
+    print("Id != none")
+  else:
+    endpoint = f"{URL}/api/v2/inventory-preload/records"
+    req = requests.post(endpoint, json=payload, headers=headers)
+    print("ID is none")
+  return
+
   

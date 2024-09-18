@@ -100,6 +100,10 @@ components:
   name: label_4
   properties: {align: center, bold: true, font_size: 32, text: 'Preloader information:'}
   type: Label
+- layout_properties: {grid_position: 'IAJNYD,WIIEJZ'}
+  name: preloadID
+  properties: {align: center, text: 'ID: '}
+  type: Label
 - layout_properties: {grid_position: 'PFONBR,RXQGOA'}
   name: label_5
   properties: {text: 'Serial Number:'}
@@ -148,6 +152,11 @@ components:
   name: preloadAT
   properties: {}
   type: TextBox
+- event_bindings: {click: button_2_click}
+  layout_properties: {grid_position: 'MUCDMO,KCAMRW'}
+  name: button_2
+  properties: {text: Refresh}
+  type: Button
 - data_bindings: []
   event_bindings: {click: button_1_click}
   layout_properties: {full_width_row: false, grid_position: 'MUCDMO,JIMAIZ'}

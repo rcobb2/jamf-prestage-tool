@@ -53,7 +53,7 @@ class Form1(Form1Template):
       self.pName.visible = False
       self.pName.text = ""
       self.pID.text = ""
-    self.id = id  
+    self.preloadID.text = f"{id}"  
     self.preloadSN.text = f"{compSN}"
     self.preloadUN.text = f"{un}"
     self.preloadEA.text = f"{ea}"
@@ -90,5 +90,18 @@ class Form1(Form1Template):
 
   def button_1_click(self, **event_args):
    #(id, compSN, un, ea, building, room, at)
-    update = anvil.server.call('update_inventory_preload', self.id, self.preloadSN.text, self.preloadUN.text, self.preloadEA.text, self.preloadBuilding.selected_value, self.preloadRoom.text, self.preloadAT.text)
-    alert(f"{update}")
+    update = anvil.server.call('update_inventory_preload', self.preloadID.text, self.preloadSN.text, self.preloadUN.text, self.preloadEA.text, self.preloadBuilding.selected_value, self.preloadRoom.text, self.preloadAT.text)
+
+  def button_2_click(self, **event_args):
+    """This method is called when the button is clicked"""
+    id, un, ea, building, room, at = anvil.server.call('get_inventory_preload', self.compSN.text)
+    self.preloadID.text = f"{id}"  
+    self.preloadSN.text = f"{compSN}"
+    self.preloadUN.text = f"{un}"
+    self.preloadEA.text = f"{ea}"
+    if building != None:
+      self.preloadBuilding.selected_value = f"{building}"
+    else:
+      pass
+    self.preloadRoom.text = f"{room}"
+    self.preloadAT.text = f"{at}"
