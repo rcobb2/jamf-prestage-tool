@@ -8,7 +8,7 @@ components:
   event_bindings: {pressed_enter: text_box_1_pressed_enter}
   layout_properties: {grid_position: 'FXOEXU,UDCEGA'}
   name: text_box_1
-  properties: {}
+  properties: {placeholder: 'Name, serial number, asset tag.......'}
   type: TextBox
 - layout_properties: {grid_position: 'LEOBOH,KHSFGG'}
   name: spacer_1
@@ -163,5 +163,16 @@ components:
   name: button_1
   properties: {background: '#37ff00', bold: true, font_size: 18, text: Update preload}
   type: Button
-container: {type: ColumnPanel}
+- layout_properties: {grid_position: 'JAADRR,OLIQUS'}
+  name: label_11
+  properties: {align: center, bold: true, font: '', font_size: 32, text: 'Upload CSV:'}
+  type: Label
+- data_bindings: []
+  layout_properties: {grid_position: 'PUWRNU,EPFFSP', row_background: '#ffffff'}
+  name: file_loader_1
+  properties: {file_types: '', font_size: 36}
+  type: FileLoader
+container:
+  properties: {background: '#a3a3a3'}
+  type: ColumnPanel
 is_package: true
