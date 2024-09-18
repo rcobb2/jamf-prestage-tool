@@ -94,9 +94,9 @@ class Form1(Form1Template):
 
   def button_2_click(self, **event_args):
     """This method is called when the button is clicked"""
-    id, un, ea, building, room, at = anvil.server.call('get_inventory_preload', self.compSN.text)
+    id, un, ea, building, room, at = anvil.server.call('get_inventory_preload', self.cSN.text)
     self.preloadID.text = f"{id}"  
-    self.preloadSN.text = f"{compSN}"
+    self.preloadSN.text = f"{self.cSN.text}"
     self.preloadUN.text = f"{un}"
     self.preloadEA.text = f"{ea}"
     if building != None:
