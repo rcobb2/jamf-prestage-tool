@@ -163,15 +163,6 @@ components:
   name: button_1
   properties: {background: '#37ff00', bold: true, font_size: 18, text: Update preload}
   type: Button
-- layout_properties: {grid_position: 'JAADRR,OLIQUS'}
-  name: label_11
-  properties: {align: center, bold: true, font: '', font_size: 32, text: 'Upload CSV:'}
-  type: Label
-- data_bindings: []
-  layout_properties: {full_width_row: false, grid_position: 'PUWRNU,EPFFSP', row_background: ''}
-  name: file_loader_1
-  properties: {background: 'theme:Background', file_types: '', font_size: 36}
-  type: FileLoader
 container:
   properties: {background: '#a3a3a3'}
   type: ColumnPanel
