@@ -15,6 +15,7 @@ class Form1(Form1Template):
         "loaner prestage",
         "classroom prestage",
         "faculty/staff prestage",
+        "pSSO Test Prestage"
     ]
     self.preloadBuilding.items = [
         "100HA", "Alana", "Alum", "Arena", "Base", "Bent", "Bern", "Bookstore",
@@ -34,7 +35,8 @@ class Form1(Form1Template):
   def text_box_1_pressed_enter(self, **event_args):
     """This method is called when the user presses Enter in this text box"""
     compName, compID, compSN, compAsset, prestageID, prestageName, id, un, ea, building, room, at = anvil.server.call('get_target_computer', self.text_box_1.text)
-    
+    if compName is None:
+      alert("No computer record found.")
     self.cName.text = f"{compName}"
     self.cSN.text = f"{compSN}"
     self.cAsset.text = f"{compAsset}"

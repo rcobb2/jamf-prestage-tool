@@ -86,6 +86,7 @@ def replace_computer_prestage(compSN, prestageID):
 @anvil.server.callable
 def get_prestageID(targetPrestageName):
     prestageNames2ID = {
+        "pSSO Test Prestage" : 10,
         "first-time user prestage" : 9,
         "classroom test" : 8,
         "ous prestage" : 7,
@@ -133,9 +134,11 @@ def get_computer_id(URL, access_token, compInfo):
         }
     req = requests.get(endpoint, headers=headers)
     xmldata = req.text
-    print(xmldata)
     root = ET.fromstring(xmldata)
     computer = root.find('computer')
+    if computer is None:
+        print("No computer record found.")
+        return None, None, None, None
     compName = computer.find('name').text
     compID = computer.find('id').text
     compSN = computer.find('serial_number').text
@@ -159,6 +162,7 @@ def get_computer_prestage(URL, access_token, compSN):
 @anvil.server.callable
 def get_prestage_name(prestageID):
     prestageID2Name = {
+        "10": "pSSO Test Prestage",
         "9" : "first-time user prestage",
         "8" : "classroom test",
         "7" : "ous prestage",
