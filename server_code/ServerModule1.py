@@ -133,6 +133,7 @@ def get_computer_id(URL, access_token, compInfo):
         }
     req = requests.get(endpoint, headers=headers)
     xmldata = req.text
+    print(xmldata)
     root = ET.fromstring(xmldata)
     computer = root.find('computer')
     compName = computer.find('name').text
