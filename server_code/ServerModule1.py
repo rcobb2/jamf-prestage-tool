@@ -240,19 +240,4 @@ def update_inventory_preload(id, compSN, un, ea, building, room, at):
     print("ID is none")
   return
 
-@anvil.server.callable
-def upload_csv_preload():
-  return
-
-@anvil.server.callable
-def validate_csv_preload():
-  access_token = get_access_token(URL, CLIENTID, CLIENTSECRET)
-  endpoint = f"{URL}/api/v2/inventory-preload/csv-validate"
-  headers = {
-    'Authorization': f'Bearer {access_token}',
-    'Content-Type': "multipart/form-data; boundary=---011000010111000001101001",
-    'accept': 'application/json'
-  }
-  payload = "---011000010111000001101001"
-  req = requests.post(endpoint, data=payload, headers=headers)
   
