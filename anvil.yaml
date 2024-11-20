@@ -1,4 +1,31 @@
 allow_embedding: false
+db_schema:
+  users:
+    client: search
+    columns:
+    - admin_ui: {order: 0, width: 200}
+      name: email
+      type: string
+    - admin_ui: {order: 1, width: 200}
+      name: enabled
+      type: bool
+    - admin_ui: {order: 2, width: 200}
+      name: last_login
+      type: datetime
+    - admin_ui: {order: 3, width: 200}
+      name: password_hash
+      type: string
+    - admin_ui: {order: 4, width: 200}
+      name: n_password_failures
+      type: number
+    - admin_ui: {order: 5, width: 200}
+      name: confirmed_email
+      type: bool
+    - admin_ui: {order: 6, width: 200}
+      name: remembered_logins
+      type: simpleObject
+    server: full
+    title: Users
 metadata: {description: JAMF Prestage Tool, title: JAMF Prestage Tool}
 name: JAMF Prestage Tool
 package_name: JAMF_Prestage_Tool
@@ -11,4 +38,10 @@ services:
 - client_config: {enable_v2: true}
   server_config: {auto_create_missing_columns: true}
   source: /runtime/services/tables.yml
+- client_config: {}
+  server_config: {}
+  source: /runtime/services/google.yml
+- client_config: {allow_remember_me: true, allow_signup: false, confirm_email: false, enable_automatically: true, remember_me_days: 7, use_email: false, use_google: true}
+  server_config: {user_table: users}
+  source: /runtime/services/anvil/users.yml
 startup_form: Form1
