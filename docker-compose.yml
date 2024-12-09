@@ -1,0 +1,40 @@
+version: '3'
+services:
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    ports:
+      - "5050:5050" # HTTP port for the backend (if needed)
+      - "8443:443"  # Expose HTTPS port for the backend
+    environment:
+      - BASE_URL=${BASE_URL}
+      - CLIENT_ID=${CLIENT_ID}
+      - CLIENT_SECRET=${CLIENT_SECRET}
+      - PORT=${PORT}
+    volumes:
+      - ./server:/app
+      - ./server.key:/app/server.key # Map the SSL key into the container
+      - ./server.cert:/app/server.cert # Map the SSL cert into the container
+    depends_on:
+      - client
+
+  client:
+    build:
+      context: .
+      dockerfile: ./client/Dockerfile
+      args:
+        - REACT_APP_SERVER_URL=${REACT_APP_SERVER_URL}
+        - REACT_APP_CLIENT_ID=${REACT_APP_CLIENT_ID}
+        - REACT_APP_TENANT_ID=${REACT_APP_TENANT_ID}
+    ports:
+      - "443:443"
+    environment:
+      - REACT_APP_SERVER_URL=${REACT_APP_SERVER_URL}
+      - REACT_APP_CLIENT_ID=${REACT_APP_CLIENT_ID}
+      - REACT_APP_TENANT_ID=${REACT_APP_TENANT_ID}
+    volumes:
+      - ./client:/app
+      - ./server.key:/etc/ssl/private/server.key
+      - ./server.cert:/etc/ssl/certs/server.cert
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf

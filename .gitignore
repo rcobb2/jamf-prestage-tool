@@ -1,0 +1,5 @@
+#ignore .env for git
+.env
+server.cert
+server.key
+nginx.conf
