@@ -243,7 +243,7 @@ const getIdField = (computers) => {
 const getPrestages = async () => {
     try {
         const token = await getToken();
-        const apiUrl = `${baseUrl}/api/v2/computer-prestages?page=0&page-size=100&sort=id%3Adesc`;
+        const apiUrl = `${baseUrl}/api/v3/computer-prestages?page=0&page-size=100&sort=id%3Adesc`;
         const response = await axios.get(apiUrl, {
         headers: {
             Authorization: `Bearer ${token}`
