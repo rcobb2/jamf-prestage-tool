@@ -1,17 +1,17 @@
 # Use the official Node.js image as the base image
-FROM node:18 AS build
+FROM node:lts-slim AS build
 
 # Set the working directory
 WORKDIR /app
 
-# Copy the package.json and package-lock.json specifically
-COPY client/package*.json ./
+# Copy package.json and package-lock.json
+COPY ./client/package.json ./
 
 # Install dependencies
 RUN npm install
 
 # Copy the rest of the application code
-COPY client/. .
+COPY ./client/. .
 
 # Pass build-time arguments
 ARG REACT_APP_SERVER_URL
@@ -27,7 +27,7 @@ ENV REACT_APP_TENANT_ID=${REACT_APP_TENANT_ID}
 RUN npm run build
 
 # Use a lightweight web server to serve the static files
-FROM nginx:alpine
+FROM nginx:stable-bookworm
 
 # Copy the build output
 COPY --from=build /app/build /usr/share/nginx/html

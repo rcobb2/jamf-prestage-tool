@@ -1,0 +1,3 @@
+docker compose down --volumes --rmi all
+docker builder prune -a
+clear && docker compose up
