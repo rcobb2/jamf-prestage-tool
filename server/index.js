@@ -176,12 +176,10 @@ const matchComputer = async (search) => {
         //console.log('API Response:', response.data);
 
         if (response.data && response.data.computers && Array.isArray(response.data.computers)) {
-            const computers = response.data.computers.map(item => ({
+            return response.data.computers.map(item => ({
                 id: item.id,
                 serial_number: item.serial_number
-            }));
-            //console.log(computers);
-            return computers; // Return the array of objects with id and serial_number
+            })); // Return the array of objects with id and serial_number
         } else {
             throw new Error('Unexpected response format');
         }
@@ -252,13 +250,11 @@ const getPrestages = async () => {
         //console.log('API Response:', response.data);
 
         // Filter the response to only include id, displayName, and versionLock
-        const filteredPrestages = response.data.results.map(prestage => ({
+        return response.data.results.map(prestage => ({
             id: prestage.id,
             displayName: prestage.displayName,
             versionLock: prestage.versionLock || 'N/A' // Handle cases where accountSettings might be null
         }));
-        //console.log('Filtered Prestages:', filteredPrestages);
-        return filteredPrestages;
     } catch (error) {
         console.error('Error fetching data:', error);
         throw error;
