@@ -13,7 +13,7 @@ const clientId = process.env.CLIENT_ID;
 const clientSecret = process.env.CLIENT_SECRET;
 const tokenUrl = `${baseUrl}/api/oauth/token`;
 
-app.use(cors());
+// app.use(cors());
 app.use(express.json()); // Middleware to parse JSON bodies
 
 // Load SSL certificates

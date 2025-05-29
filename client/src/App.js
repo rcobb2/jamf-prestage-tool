@@ -27,10 +27,10 @@ const App = () => {
     async function initializeAuth() {
       try {
         console.log("Initializing authentication process...");
-  
+
         const accounts = instance.getAllAccounts();
         //console.log("Accounts in MSAL cache:", accounts);
-  
+
         if (accounts.length === 0) {
           //console.log("No accounts found. Triggering loginPopup.");
           await instance.initialize(); // Ensure the instance is initialized (optional for some configurations).
@@ -41,37 +41,37 @@ const App = () => {
         console.error("Login error:", error);
       }
     }
-  
+
     initializeAuth();
   }, [isAuthenticated, instance]);
 
 
   useEffect(() => {
     if (isAuthenticated) {
-        console.log("User is authenticated. Fetching prestages and buildings.");
-        fetchPrestages();
-        fetchBuildings(); // Fetch buildings data
+      console.log("User is authenticated. Fetching prestages and buildings.");
+      fetchPrestages();
+      fetchBuildings(); // Fetch buildings data
     }
-}, [isAuthenticated]);
+  }, [isAuthenticated]);
 
-const fetchPrestages = async () => {
+  const fetchPrestages = async () => {
     try {
-        const response = await axios.get(`${serverUrl}/api/prestages`);
-        setPrestages(response.data);
+      const response = await axios.get(`${serverUrl}/api/prestages`);
+      setPrestages(response.data);
     } catch (error) {
-        console.error("Error fetching prestages:", error);
+      console.error("Error fetching prestages:", error);
     }
-};
+  };
 
-const fetchBuildings = async () => {
-  try {
+  const fetchBuildings = async () => {
+    try {
       const response = await axios.get(`${serverUrl}/api/buildings`);
       console.log('Buildings fetched:', response.data); // Debugging line
       setBuildings(response.data);
-  } catch (error) {
+    } catch (error) {
       console.error("Error fetching buildings:", error);
-  }
-};
+    }
+  };
 
   const handleInputChange = (e) => {
     setSearchId(e.target.value);
@@ -79,23 +79,23 @@ const fetchBuildings = async () => {
 
   const handleSearch = async () => {
     try {
-        const response = await axios.get(`${serverUrl}/api/data/${searchId}`, {
-            headers: {
-                accept: 'application/json',
-                'content-type': 'application/json'
-            }
-        });
-        setData(response.data);
-        setNotification('Search completed successfully.');
-    } catch (error) {
-        if (error.response && error.response.status === 404) {
-            setNotification('No matching computers found.');
-        } else {
-            console.error('Error searching for data:', error);
-            setNotification('An error occurred while searching for data.');
+      const response = await axios.get(`${serverUrl}/api/data/${searchId}`, {
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json'
         }
+      });
+      setData(response.data);
+      setNotification('Search completed successfully.');
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        setNotification('No matching computers found.');
+      } else {
+        console.error('Error searching for data:', error);
+        setNotification('An error occurred while searching for data.');
+      }
     }
-};
+  };
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
@@ -166,40 +166,40 @@ const fetchBuildings = async () => {
   const handleUpdateInformation = async () => {
     const currentComputer = data[currentIndex];
     const { computerId, preloadId, serial_number, username, email, room, assetTag } = currentComputer;
-  
+
     const updateData = {
-        serialNumber: serial_number,
-        username,
-        emailAddress: email,
-        building: selectedBuildingName, // Use the selected building name
-        room,
-        assetTag,
-        buildingId: selectedBuildingId // Use the selected building ID
+      serialNumber: serial_number,
+      username,
+      emailAddress: email,
+      building: selectedBuildingName, // Use the selected building name
+      room,
+      assetTag,
+      buildingId: selectedBuildingId // Use the selected building ID
     };
     console.log('Update Data:', updateData);
     try {
-        const response = await axios.put(`${serverUrl}/api/update-preload/${preloadId || 'null'}/${computerId}`, updateData, {
-            headers: {
-                accept: 'application/json',
-                'content-type': 'application/json'
-            }
-        });
-        console.log('Update Preload Information Response:', response.data);
-
-        if (response.data.computerResponse && response.data.preloadResponse) {
-            setNotification('Both Inventory and Preload data were successfully updated.');
-        } else if (response.data.preloadResponse && !response.data.computerResponse) {
-            setNotification('Preload data was updated, but Inventory record was not found or failed.');
-        } else if (!response.data.preloadResponse && response.data.computerResponse) {
-            setNotification('Inventory record was found and updated, but Preload data failed.');
-        } else {
-            setNotification('Both Inventory and Preload data update failed.');
+      const response = await axios.put(`${serverUrl}/api/update-preload/${preloadId || 'null'}/${computerId}`, updateData, {
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json'
         }
+      });
+      console.log('Update Preload Information Response:', response.data);
+
+      if (response.data.computerResponse && response.data.preloadResponse) {
+        setNotification('Both Inventory and Preload data were successfully updated.');
+      } else if (response.data.preloadResponse && !response.data.computerResponse) {
+        setNotification('Preload data was updated, but Inventory record was not found or failed.');
+      } else if (!response.data.preloadResponse && response.data.computerResponse) {
+        setNotification('Inventory record was found and updated, but Preload data failed.');
+      } else {
+        setNotification('Both Inventory and Preload data update failed.');
+      }
     } catch (error) {
-        console.error('Error updating preload information:', error);
-        setNotification('Failed to update information.');
+      console.error('Error updating preload information:', error);
+      setNotification('Failed to update information.');
     }
-};
+  };
 
   const handleLogout = () => {
     console.log("Starting logout process.");
@@ -258,18 +258,18 @@ const fetchBuildings = async () => {
     const selectedBuilding = buildings.find(building => building.id === selectedId);
     setSelectedBuildingId(selectedId);
     setSelectedBuildingName(selectedBuilding ? selectedBuilding.name : '');
-};
+  };
 
   useEffect(() => {
     if (data.length > 0 && buildings.length > 0) {
-        const currentBuilding = data[currentIndex].building;
-        const matchedBuilding = buildings.find(building => building.name === currentBuilding);
-        if (matchedBuilding) {
-            setSelectedBuildingId(matchedBuilding.id);
-            setSelectedBuildingName(matchedBuilding.name);
-        }
+      const currentBuilding = data[currentIndex].building;
+      const matchedBuilding = buildings.find(building => building.name === currentBuilding);
+      if (matchedBuilding) {
+        setSelectedBuildingId(matchedBuilding.id);
+        setSelectedBuildingName(matchedBuilding.name);
+      }
     }
-}, [data, buildings, currentIndex]);
+  }, [data, buildings, currentIndex]);
 
 
   if (!isAuthenticated) {
@@ -278,76 +278,76 @@ const fetchBuildings = async () => {
 
   return (
     <div className="App">
-        <h1>Jamf Prestage Tool</h1>
-        <button onClick={handleLogout}>Logout</button>
-        <input
-            type="text"
-            value={searchId}
-            onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            placeholder="Enter search ID"
-        />
-        <button onClick={handleSearch}>Search</button>
-        <button onClick={handleRefresh}>Refresh</button>
-        {loading && <p>Loading...</p>}
-        {error && <p>Error: {error}</p>}
-        {data.length > 0 && (
-            <div className="card">
-                <button onClick={handlePrev}>&lt;</button>
-                <div className="card-content">
-                    <div className="card-column">
-                        <p><span className="text-highlight">Computer Details:</span></p>
-                        <p>Computer ID: <span className="text-highlight">{data[currentIndex].computerId}</span></p>
-                        <p>Computer Name: <span className="text-highlight">{data[currentIndex].name}</span></p>
-                        <p>Computer Serial: <span className="text-highlight">{data[currentIndex].serial_number}</span></p>
-                        <p>Last Run Prestage: <span className="text-highlight">{data[currentIndex].enrollmentObjectName}</span></p>
-                        <p>Current Prestage: <span className="text-highlight">{data[currentIndex].currentPrestage}</span></p>
-                    </div>
-                    <div className="card-column">
-                        <p><span className="text-highlight">Preload Details:</span></p>
-                        <p>Username: <input type="text" value={data[currentIndex].username} onChange={(e) => handleFieldChange(e, 'username')} /></p>
-                        <p>Email: <input type="text" value={data[currentIndex].email} onChange={(e) => handleFieldChange(e, 'email')} /></p>
-                        <p>Asset Tag: <input type="text" value={data[currentIndex].assetTag} onChange={(e) => handleFieldChange(e, 'assetTag')} /></p>
-                        <p>Building: 
-                            <select value={selectedBuildingId} onChange={handleBuildingChange}>
-                                <option value="">Select a building</option>
-                                {buildings.map((building) => (
-                                    <option key={building.id} value={building.id}>
-                                        {building.name}
-                                    </option>
-                                ))}
-                            </select>
-                        </p>
-                        <p>Room: <input type="text" value={data[currentIndex].room} onChange={(e) => handleFieldChange(e, 'room')} /></p>
-                    </div>
-                </div>
-                <button onClick={handleNext}>&gt;</button>
-                <div className="counter">
-                    {currentIndex + 1} of {data.length}
-                </div>
+      <h1>Jamf Prestage Tool</h1>
+      <button onClick={handleLogout}>Logout</button>
+      <input
+        type="text"
+        value={searchId}
+        onChange={handleInputChange}
+        onKeyPress={handleKeyPress}
+        placeholder="Enter search ID"
+      />
+      <button onClick={handleSearch}>Search</button>
+      <button onClick={handleRefresh}>Refresh</button>
+      {loading && <p>Loading...</p>}
+      {error && <p>Error: {error}</p>}
+      {data.length > 0 && (
+        <div className="card">
+          <button onClick={handlePrev}>&lt;</button>
+          <div className="card-content">
+            <div className="card-column">
+              <p><span className="text-highlight">Computer Details:</span></p>
+              <p>Computer ID: <span className="text-highlight">{data[currentIndex].computerId}</span></p>
+              <p>Computer Name: <span className="text-highlight">{data[currentIndex].name}</span></p>
+              <p>Computer Serial: <span className="text-highlight">{data[currentIndex].serial_number}</span></p>
+              <p>Last Run Prestage: <span className="text-highlight">{data[currentIndex].enrollmentObjectName}</span></p>
+              <p>Current Prestage: <span className="text-highlight">{data[currentIndex].currentPrestage}</span></p>
             </div>
-        )}
-        {prestages.length > 0 && (
-            <div className="dropdown">
-                <label htmlFor="prestages">Select Prestage:</label>
-                <select id="prestages" value={selectedPrestage} onChange={handlePrestageChange}>
-                    <option value="">Select a Prestage</option>
-                    {prestages.map(prestage => (
-                        <option key={prestage.id} value={prestage.id}>
-                            {prestage.displayName}
-                        </option>
-                    ))}
+            <div className="card-column">
+              <p><span className="text-highlight">Preload Details:</span></p>
+              <p>Username: <input type="text" value={data[currentIndex].username} onChange={(e) => handleFieldChange(e, 'username')} /></p>
+              <p>Email: <input type="text" value={data[currentIndex].email} onChange={(e) => handleFieldChange(e, 'email')} /></p>
+              <p>Asset Tag: <input type="text" value={data[currentIndex].assetTag} onChange={(e) => handleFieldChange(e, 'assetTag')} /></p>
+              <p>Building:
+                <select value={selectedBuildingId} onChange={handleBuildingChange}>
+                  <option value="">Select a building</option>
+                  {buildings.map((building) => (
+                    <option key={building.id} value={building.id}>
+                      {building.name}
+                    </option>
+                  ))}
                 </select>
+              </p>
+              <p>Room: <input type="text" value={data[currentIndex].room} onChange={(e) => handleFieldChange(e, 'room')} /></p>
             </div>
-        )}
-        <div className="button-group">
-            <button className="remove-button" onClick={handleRemoveFromPrestage}>Remove from Prestage</button>
-            <button className="add-button" onClick={handleAddToPrestage}>Add to Prestage</button>
-            <button className="update-button" onClick={handleUpdateInformation}>Update Preload Information</button>
+          </div>
+          <button onClick={handleNext}>&gt;</button>
+          <div className="counter">
+            {currentIndex + 1} of {data.length}
+          </div>
         </div>
-        {notification && <p className="notification">{notification}</p>}
+      )}
+      {prestages.length > 0 && (
+        <div className="dropdown">
+          <label htmlFor="prestages">Select Prestage:</label>
+          <select id="prestages" value={selectedPrestage} onChange={handlePrestageChange}>
+            <option value="">Select a Prestage</option>
+            {prestages.map(prestage => (
+              <option key={prestage.id} value={prestage.id}>
+                {prestage.displayName}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <div className="button-group">
+        <button className="remove-button" onClick={handleRemoveFromPrestage}>Remove from Prestage</button>
+        <button className="add-button" onClick={handleAddToPrestage}>Add to Prestage</button>
+        <button className="update-button" onClick={handleUpdateInformation}>Update Preload Information</button>
+      </div>
+      {notification && <p className="notification">{notification}</p>}
     </div>
-);
+  );
 };
 
 export default App;

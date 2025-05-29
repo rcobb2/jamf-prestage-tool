@@ -33,20 +33,23 @@
   from {
     transform: rotate(0deg);
   }
+
   to {
     transform: rotate(360deg);
   }
 }
 
 /* Center everything in the window */
-body, html {
+body,
+html {
   height: 100%;
   margin: 0;
   display: flex;
   justify-content: center;
   align-items: center;
   font-family: Arial, sans-serif;
-  background-color: #2B2F36; /* Cool grey background */
+  background-color: #2B2F36;
+  /* Cool grey background */
 }
 
 .container {
@@ -57,7 +60,8 @@ body, html {
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
 }
 
-input, button {
+input,
+button {
   padding: 10px;
   margin: 10px;
   border-radius: 4px;
@@ -86,7 +90,8 @@ pre {
   justify-content: center;
   align-items: center;
   margin-bottom: 20px;
-  width: 100%; /* Ensure container takes full width */
+  width: 100%;
+  /* Ensure container takes full width */
 }
 
 .search-container input {
@@ -94,8 +99,10 @@ pre {
   margin-right: 10px;
   border-radius: 4px;
   border: 1px solid #ccc;
-  width: calc(100% - 20px); /* Make input take full width minus padding */
-  max-width: 600px; /* Increased maximum width to fit within the card */
+  width: calc(100% - 20px);
+  /* Make input take full width minus padding */
+  max-width: 600px;
+  /* Increased maximum width to fit within the card */
 }
 
 .search-container button {
@@ -118,11 +125,14 @@ pre {
   align-items: center;
   justify-content: center;
   margin: 20px auto;
-  padding: 15px; /* Reduced padding */
+  padding: 15px;
+  /* Reduced padding */
   border: 1px solid #ccc;
   border-radius: 10px;
-  width: 100%; /* Adjusted width to fit the container */
-  max-width: 900px; /* Increased maximum width to fit content */
+  width: 100%;
+  /* Adjusted width to fit the container */
+  max-width: 900px;
+  /* Increased maximum width to fit content */
   background-color: white;
   box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
   flex-direction: column;
@@ -136,19 +146,23 @@ pre {
 
 .card-column {
   flex: 1;
-  margin: 5px; /* Reduced margin */
+  margin: 5px;
+  /* Reduced margin */
   display: flex;
   flex-direction: column;
-  justify-content: space-between; /* Distribute space evenly */
+  justify-content: space-between;
+  /* Distribute space evenly */
 }
 
 
 .card-column:first-child {
-  justify-content: space-around; /* Adjust spacing for the first column */
+  justify-content: space-around;
+  /* Adjust spacing for the first column */
 }
 
 .card-column .row {
-  margin-bottom: 5px; /* Reduced margin */
+  margin-bottom: 5px;
+  /* Reduced margin */
 }
 
 .card button {
@@ -223,17 +237,20 @@ pre {
 }
 
 .update-button {
-  background-color: #ffcc00; /* Orangish-yellow color */
+  background-color: #ffcc00;
+  /* Orangish-yellow color */
   color: white;
   border: none;
   border-radius: 5px;
   cursor: pointer;
   padding: 10px 20px;
-  margin-left: 10px; /* Add some space between buttons */
+  margin-left: 10px;
+  /* Add some space between buttons */
 }
 
 .update-button:hover {
-  background-color: #e6b800; /* Darker shade for hover effect */
+  background-color: #e6b800;
+  /* Darker shade for hover effect */
 }
 
 .notification {
