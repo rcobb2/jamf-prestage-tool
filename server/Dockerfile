@@ -13,6 +13,9 @@ RUN npm install
 # Copy the rest of the application code
 COPY ./server/. .
 
+# Run TypeScript compile
+RUN npx tsc --project ./tsconfig.json
+
 # Expose the port the server will run on
 EXPOSE 443
 

@@ -13,6 +13,9 @@ RUN npm install
 # Copy the rest of the application code
 COPY ./client/. .
 
+# Run TypeScript compile
+RUN npx tsc --project ./tsconfig.json
+
 # Pass build-time arguments
 ARG REACT_APP_SERVER_URL
 ARG REACT_APP_CLIENT_ID
