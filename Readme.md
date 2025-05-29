@@ -1,12 +1,14 @@
 You will need to set an a .env file for these secrets and settings - place these in the root directory of the project.
 
-CLIENT_ID= #JAMF API Client ID
-CLIENT_SECRET= #JAMF API Client Secret
-BASE_URL=https://.jamfcloud.com #Base URL for your JAMF environment
-PORT=443 #Port to run the server on
-REACT_APP_SERVER_URL= #SERVER URL address
-REACT_APP_CLIENT_ID= #Entra Application Registration Client ID
-REACT_APP_TENANT_ID= https://login.microsoftonline.com/ #add on tenant ID after slash
+```
+CLIENT_ID=                                              # JAMF API Client ID
+CLIENT_SECRET=                                          # JAMF API Client Secret
+BASE_URL=https://.jamfcloud.com                         # Base URL for your JAMF environment
+PORT=443                                                # Port to run the server on
+REACT_APP_SERVER_URL=                                   # SERVER URL address
+REACT_APP_CLIENT_ID=                                    # Entra Application Registration Client ID
+REACT_APP_TENANT_ID=https://login.microsoftonline.com/  # add on tenant ID after slash
+```
 
 JAMF API role privileges:
 Update Mobile Device PreStage Enrollments, Read Computers, Read Mobile Device PreStage Enrollments, Assign Users to Mobile Devices, Read Inventory Preload Records, Read Computer Inventory Collection, Read Computer Inventory Collection Settings, Update Computers, Update Inventory Preload Records, Update User, Assign Users to Computers, Delete Mobile Device PreStage Enrollments, Read Computer Extension Attributes, Read Device Enrollment Program Instances, Read User, Delete Computer PreStage Enrollments, Create Inventory Preload Records, Read Computer Enrollment Invitations, Read Computer PreStage Enrollments, Update Computer PreStage Enrollments, Read Buildings.
@@ -16,7 +18,6 @@ You'll need to create a JAMF API Role that has these privileges, and then assign
 This project is a web app for JAMF Pro cloud and Entra ID that helps simplify and collate various menu's in JAMF to create a more streamlined experience managing MacOS devices regarding Prestage and Preload information.
 
 Context:
-
 In my environment, we utilize prestages to determine the device's use case (For us, Faculty/Staff, Classrooms, Labs, Loaner machines, and various test flows), but likely you might also have different prestages for different departments etc.
 We also leverage the "Inventory Preload" feature to pre-fill information where we can such as (User, Asset Tag, Building, Room). This becomes helpful with Zero-Touch deployment workflows as for us:
 
@@ -59,28 +60,27 @@ NOTE: Don't search beligerently with just a *, or something similarly (like *0\*
 
 Once you've searched, it will return 2 sections:
 Computer Details:
-ID: This is the computer's JAMF ID - it's largely unimportant, but if you've worked with the API it can be useful.
-Computer Name
-Computer Serial
-Last Run Prestage: This represents the prestage the machine was enrolled under last - this can differ from a currently assigned one, so I've displayed both here:
-Current Prestage: see above
+  ID: This is the computer's JAMF ID - it's largely unimportant, but if you've worked with the API it can be useful.
+  Computer Name
+  Computer Serial
+  Last Run Prestage: This represents the prestage the machine was enrolled under last - this can differ from a currently assigned one, so I've displayed both here:
+  Current Prestage: see above
 
 Preload Details:
-Note: These reflect the values that are found in the preload record for the device (if found/present) with the exception of Asset Tag
+  Note: These reflect the values that are found in the preload record for the device (if found/present) with the exception of Asset Tag
 
-Username: Assigned user's username
-Email: The reason I've only included these fields instead of others is that depending on your directory service (LDAP, Entra, Google) these 2 fields should be enough to populate the other fields (Real name, department, phone number) if you use them.
-Asset Tag: NOTE: This field is populated from the inventory record, and not the preload entry
+  Username: Assigned user's username
 
-Building: This will query your buildings set up in JAMF, and set the currently selected to the one in your preload record
-NOTE: It may be possible for a preload record to have a building not in JAMF - not sure how that would be handled here, but you should be able to set it to a proper building regardless.
+  Email: The reason I've only included these fields instead of others is that depending on your directory service (LDAP, Entra, Google) these 2 fields should be enough to populate the other fields (Real name, department, phone number) if you use them.
 
-Room
+  Asset Tag: NOTE: This field is populated from the inventory record, and not the preload entry
 
-At the bottom, there's a dropdown populated with the prestages in your environment.
-Note: You will need to remove from a currently assigned prestage prior to assigning to a new one - it will notify you if this occurs.
+  Building: This will query your buildings set up in JAMF, and set the currently selected to the one in your preload record
+  NOTE: It may be possible for a preload record to have a building not in JAMF - not sure how that would be handled here, but you should be able to set it to a proper building regardless.
 
-Update Preload Information:
-This will attempt to update the preload record AND the current computer's inventory record allowing you to remediate devices with this tool if they've already been enrolled prior to the data being available.
+  Room:
+  At the bottom, there's a dropdown populated with the prestages in your environment.
+  Note: You will need to remove from a currently assigned prestage prior to assigning to a new one - it will notify you if this occurs.
 
-However, if a device hasn't been enrolled yet and you press this button, it will simply let you know that it was able to update the preload and not the inventory record.
+  Update Preload Information:
+  This will attempt to update the preload record AND the current computer's inventory record allowing you to remediate devices with this tool if they've already been enrolled prior to the data being available, however, if a device hasn't been enrolled yet and you press this button, it will simply let you know that it was able to update the preload and not the inventory record.

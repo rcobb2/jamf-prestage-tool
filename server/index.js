@@ -17,7 +17,7 @@ app.use(express.json()); // Middleware to parse JSON bodies
 const sslOptions = {
     key: fs.readFileSync('/app/server.key'),
     cert: fs.readFileSync('/app/server.cert')
-  };
+};
 
 const baseUrl = process.env.BASE_URL;
 const clientId = process.env.CLIENT_ID;
@@ -26,21 +26,21 @@ const tokenUrl = `${baseUrl}/api/oauth/token`;
 
 const getToken = async () => {
     const data = qs.stringify({
-    grant_type: 'client_credentials',
-    client_id: clientId,
-    client_secret: clientSecret
+        grant_type: 'client_credentials',
+        client_id: clientId,
+        client_secret: clientSecret
     });
 
     try {
-    const response = await axios.post(tokenUrl, data, {
-        headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-        }
-    });
-    return response.data.access_token;
+        const response = await axios.post(tokenUrl, data, {
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        return response.data.access_token;
     } catch (error) {
-    console.error('Error obtaining access token:', error);
-    throw error; // Ensure the error is thrown to be caught in the calling function
+        console.error('Error obtaining access token:', error);
+        throw error; // Ensure the error is thrown to be caught in the calling function
     }
 };
 // Endpoint to search for matching records and collate their data
@@ -92,13 +92,13 @@ app.get('/api/data/:search', async (req, res) => {
                     const preloadData = preloadResponse.data.results[0] || {}; // Assuming the first result is the relevant one
                     const { id: preloadId, username, emailAddress, building, room } = preloadData;
 
-                    return { 
-                        serial_number: serialNumber, 
+                    return {
+                        serial_number: serialNumber,
                         preloadId, // Include the preload id
-                        username, 
-                        email: emailAddress, 
-                        building, 
-                        room 
+                        username,
+                        email: emailAddress,
+                        building,
+                        room
                     };
                 });
 
@@ -133,18 +133,18 @@ app.get('/api/data/:search', async (req, res) => {
                 const preloadData = preloadResponse.data.results[0] || {}; // Assuming the first result is the relevant one
                 const { id: preloadId, username, emailAddress, building, room } = preloadData;
 
-                return { 
-                    computerId, 
-                    name, 
-                    assetTag, 
-                    enrollmentObjectName: objectName, 
-                    serial_number, 
+                return {
+                    computerId,
+                    name,
+                    assetTag,
+                    enrollmentObjectName: objectName,
+                    serial_number,
                     currentPrestage: prestageAssignment.displayName,
                     preloadId, // Include the preload id
-                    username, 
-                    email: emailAddress, 
-                    building, 
-                    room 
+                    username,
+                    email: emailAddress,
+                    building,
+                    room
                 };
             });
 
@@ -163,34 +163,34 @@ app.get('/api/data/:search', async (req, res) => {
         res.status(500).send('Error fetching data');
     }
 });
-    // Function to match records and return JSS Id and Serial Number
+// Function to match records and return JSS Id and Serial Number
 const matchComputer = async (search) => {
     try {
         const token = await getToken();
         const apiUrl = `${baseUrl}/JSSResource/computers/match/${search}`;
         const response = await axios.get(apiUrl, {
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
         });
         //console.log('API Response:', response.data);
 
         if (response.data && response.data.computers && Array.isArray(response.data.computers)) {
-        const computers = response.data.computers.map(item => ({
-            id: item.id,
-            serial_number: item.serial_number
-        }));
-        //console.log(computers);
-        return computers; // Return the array of objects with id and serial_number
+            const computers = response.data.computers.map(item => ({
+                id: item.id,
+                serial_number: item.serial_number
+            }));
+            //console.log(computers);
+            return computers; // Return the array of objects with id and serial_number
         } else {
-        throw new Error('Unexpected response format');
+            throw new Error('Unexpected response format');
         }
     } catch (error) {
         console.error('Error fetching data:', error);
         throw error; // Throw error to be handled by the calling function
     }
 };
-    // Function to get a serial number's assigned prestage
+// Function to get a serial number's assigned prestage
 const getPrestageAssignments = async (serialNumber) => {
     const baseUrl = process.env.BASE_URL;
     try {
@@ -235,27 +235,27 @@ const getPrestageAssignments = async (serialNumber) => {
         throw error;
     }
 };
-    // Function to parse response and get the id field
+// Function to parse response and get the id field
 const getIdField = (computers) => {
     return computers.map(item => item.id);
 };
-    // Function to get prestages from 
+// Function to get prestages from
 const getPrestages = async () => {
     try {
         const token = await getToken();
         const apiUrl = `${baseUrl}/api/v3/computer-prestages?page=0&page-size=100&sort=id%3Adesc`;
         const response = await axios.get(apiUrl, {
-        headers: {
-            Authorization: `Bearer ${token}`
-        }
+            headers: {
+                Authorization: `Bearer ${token}`
+            }
         });
         //console.log('API Response:', response.data);
 
-    // Filter the response to only include id, displayName, and versionLock
-    const filteredPrestages = response.data.results.map(prestage => ({
-        id: prestage.id,
-        displayName: prestage.displayName,
-        versionLock: prestage.versionLock || 'N/A' // Handle cases where accountSettings might be null
+        // Filter the response to only include id, displayName, and versionLock
+        const filteredPrestages = response.data.results.map(prestage => ({
+            id: prestage.id,
+            displayName: prestage.displayName,
+            versionLock: prestage.versionLock || 'N/A' // Handle cases where accountSettings might be null
         }));
         //console.log('Filtered Prestages:', filteredPrestages);
         return filteredPrestages;
@@ -264,7 +264,7 @@ const getPrestages = async () => {
         throw error;
     }
 };
-    // Endpoint to get prestages
+// Endpoint to get prestages
 app.get('/api/prestages', async (req, res) => {
     try {
         const prestages = await getPrestages();
@@ -298,36 +298,36 @@ app.post('/api/remove-from-prestage', async (req, res) => {
     const { serialNumber, currentPrestage } = req.body;
 
     try {
-    const prestages = await getPrestages();
-    const prestage = prestages.find(p => p.displayName === currentPrestage);
+        const prestages = await getPrestages();
+        const prestage = prestages.find(p => p.displayName === currentPrestage);
 
-    if (!prestage) {
-        return res.status(404).send('Prestage not found');
-    }
-
-    const token = await getToken();
-    const options = {
-        method: 'POST',
-        url: `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
-        headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        Authorization: `Bearer ${token}`
-        },
-        data: {
-        serialNumbers: [serialNumber],
-        versionLock: prestage.versionLock
+        if (!prestage) {
+            return res.status(404).send('Prestage not found');
         }
-    };
 
-    const response = await axios.request(options);
-    console.log('Remove from Prestage API Response:', response.data); // Log the response body
+        const token = await getToken();
+        const options = {
+            method: 'POST',
+            url: `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
+            headers: {
+                accept: 'application/json',
+                'content-type': 'application/json',
+                Authorization: `Bearer ${token}`
+            },
+            data: {
+                serialNumbers: [serialNumber],
+                versionLock: prestage.versionLock
+            }
+        };
 
-    res.json(response.data);
+        const response = await axios.request(options);
+        console.log('Remove from Prestage API Response:', response.data); // Log the response body
+
+        res.json(response.data);
 
     } catch (error) {
-    console.error('Error removing device from prestage:', error);
-    res.status(500).send('Error removing device from prestage');
+        console.error('Error removing device from prestage:', error);
+        res.status(500).send('Error removing device from prestage');
     }
 });
 // Endpoint to add a device to a prestage
@@ -383,7 +383,7 @@ app.put('/api/update-preload/:preloadId/:computerId', async (req, res) => {
         emailAddress,
         building, // Use the selected building name
         room,
-        assetTag  // Added assetTag for preload data 
+        assetTag  // Added assetTag for preload data
     };
 
     const computerUpdateData = {
@@ -468,6 +468,6 @@ https.createServer(sslOptions, app).listen(port, () => {
 http.createServer((req, res) => {
     res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
     res.end();
-  }).listen(80, () => {
+}).listen(80, () => {
     console.log('Redirecting HTTP to HTTPS');
-  });
+});
