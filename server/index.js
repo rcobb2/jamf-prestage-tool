@@ -1,14 +1,17 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const qs = require('qs');
 const fs = require('fs');
-const http = require('http');
 const https = require('https');
+// const http = require('http');
 require('dotenv').config(); // Load environment variables from .env file
 
 const app = express();
 const port = process.env.PORT;
+const baseUrl = process.env.BASE_URL;
+const clientId = process.env.CLIENT_ID;
+const clientSecret = process.env.CLIENT_SECRET;
+const tokenUrl = `${baseUrl}/api/oauth/token`;
 
 app.use(cors());
 app.use(express.json()); // Middleware to parse JSON bodies
@@ -19,17 +22,13 @@ const sslOptions = {
     cert: fs.readFileSync('/app/server.cert')
 };
 
-const baseUrl = process.env.BASE_URL;
-const clientId = process.env.CLIENT_ID;
-const clientSecret = process.env.CLIENT_SECRET;
-const tokenUrl = `${baseUrl}/api/oauth/token`;
 
 const getToken = async () => {
-    const data = qs.stringify({
-        grant_type: 'client_credentials',
-        client_id: clientId,
-        client_secret: clientSecret
-    });
+    const data = [
+        `grant_type=client_credentials`,
+        `client_id=${encodeURIComponent(clientId)}`,
+        `client_secret=${encodeURIComponent(clientSecret)}`
+    ].join('&');
 
     try {
         const response = await axios.post(tokenUrl, data, {
@@ -50,7 +49,6 @@ app.get('/api/data/:search', async (req, res) => {
     try {
         const computers = await matchComputer(search);
         const token = await getToken();
-
         let allComputerData = [];
 
         if (computers.length === 0) {
@@ -190,7 +188,6 @@ const matchComputer = async (search) => {
 };
 // Function to get a serial number's assigned prestage
 const getPrestageAssignments = async (serialNumber) => {
-    const baseUrl = process.env.BASE_URL;
     try {
         const token = await getToken();
         const apiUrl = `${baseUrl}/api/v2/computer-prestages/scope`;
@@ -461,9 +458,9 @@ https.createServer(sslOptions, app).listen(port, () => {
 });
 
 // Redirect HTTP to HTTPS
-http.createServer((req, res) => {
-    res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
-    res.end();
-}).listen(80, () => {
-    console.log('Redirecting HTTP to HTTPS');
-});
+// http.createServer((req, res) => {
+//     res.writeHead(301, { Location: `https://${req.headers.host}${req.url}` });
+//     res.end();
+// }).listen(80, () => {
+//     console.log('Redirecting HTTP to HTTPS');
+// });
