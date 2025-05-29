@@ -13,7 +13,7 @@ const clientId = process.env.CLIENT_ID;
 const clientSecret = process.env.CLIENT_SECRET;
 const tokenUrl = `${baseUrl}/api/oauth/token`;
 
-// app.use(cors());
+app.use(cors());
 app.use(express.json()); // Middleware to parse JSON bodies
 
 // Load SSL certificates
@@ -32,16 +32,14 @@ async function getToken() {
 
   try {
     const response = await axios.post(tokenUrl, data, {
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded'
-      }
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     return response.data.access_token;
   } catch (error) {
-    console.error('Error obtaining access token:', error);
-    throw error; // Ensure the error is thrown to be caught in the calling function
+    console.error('Failed to get access token:', error.message);
+    throw error;
   }
-};
+}
 
 // Endpoint to search for matching records and collate their data
 app.get('/api/data/:search', async (req, res) => {
