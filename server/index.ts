@@ -1,10 +1,11 @@
-const express = require('express');
-const cors = require('cors');
-const axios = require('axios');
-const fs = require('fs');
-const https = require('https');
-// const http = require('http');
-require('dotenv').config(); // Load environment variables from .env file
+import axios from 'axios';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import express from 'express';
+import fs from 'fs';
+import https from 'https';
+// import http from 'http';
+dotenv.config(); // Load environment variables from .env file
 
 const app = express();
 const port = process.env.PORT;

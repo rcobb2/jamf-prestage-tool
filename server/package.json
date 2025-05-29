@@ -2,7 +2,7 @@
   "name": "jamf-prestage-tool",
   "version": "1.0.0",
   "description": "This is a web app designed to allow easy manipulation of devices assigned to prestages and their preload data",
-  "main": "index.ts",
+  "main": "index.js",
   "scripts": {
     "start": "node dist/index.js"
   },
