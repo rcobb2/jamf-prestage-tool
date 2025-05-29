@@ -300,7 +300,8 @@ app.post('/api/remove-from-prestage', async (req, res) => {
     const prestage = prestages.find(p => p.displayName === currentPrestage);
 
     if (!prestage) {
-      return res.status(404).send('Prestage not found');
+      res.status(404).send('Prestage not found');
+      return;
     }
 
     const token = await getToken();
@@ -338,7 +339,8 @@ app.post('/api/add-to-prestage', async (req, res) => {
     const prestage = prestages.find(p => p.id === prestageId);
 
     if (!prestage) {
-      return res.status(404).send('Prestage not found');
+      res.status(404).send('Prestage not found');
+      return;
     }
 
     const token = await getToken();
