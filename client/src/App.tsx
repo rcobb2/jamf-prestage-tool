@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useMsal, useIsAuthenticated } from '@azure/msal-react';
 import { loginRequest } from './authConfig';
@@ -73,7 +73,7 @@ const App = () => {
     }
   };
 
-  const handleInputChange = (e) => {
+  const handleInputChange = (e: { target: { value: any; }; }) => {
     setSearchId(e.target.value);
   };
 
@@ -97,7 +97,7 @@ const App = () => {
     }
   };
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: { key: string; }) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
@@ -108,14 +108,14 @@ const App = () => {
   };
 
   const handlePrev = () => {
-    setCurrentIndex((prevIndex) => (prevIndex > 0 ? prevIndex - 1 : data.length - 1));
+    setCurrentIndex((prevIndex: number) => (prevIndex > 0 ? prevIndex - 1 : data.length - 1));
   };
 
   const handleNext = () => {
-    setCurrentIndex((prevIndex) => (prevIndex < data.length - 1 ? prevIndex + 1 : 0));
+    setCurrentIndex((prevIndex: number) => (prevIndex < data.length - 1 ? prevIndex + 1 : 0));
   };
 
-  const handlePrestageChange = (e) => {
+  const handlePrestageChange = (e: { target: { value: any; }; }) => {
     setSelectedPrestage(e.target.value);
   };
 
@@ -157,7 +157,7 @@ const App = () => {
     }
   };
 
-  const handleFieldChange = (e, field) => {
+  const handleFieldChange = (e: { target: { value: any; }; }, field: string | number) => {
     const updatedData = [...data];
     updatedData[currentIndex][field] = e.target.value;
     setData(updatedData);
@@ -253,9 +253,9 @@ const App = () => {
     validateTokenState();
   }, []);
 
-  const handleBuildingChange = (event) => {
+  const handleBuildingChange = (event: { target: { value: any; }; }) => {
     const selectedId = event.target.value;
-    const selectedBuilding = buildings.find(building => building.id === selectedId);
+    const selectedBuilding = buildings.find((building: { id: any; }) => building.id === selectedId);
     setSelectedBuildingId(selectedId);
     setSelectedBuildingName(selectedBuilding ? selectedBuilding.name : '');
   };
@@ -263,7 +263,7 @@ const App = () => {
   useEffect(() => {
     if (data.length > 0 && buildings.length > 0) {
       const currentBuilding = data[currentIndex].building;
-      const matchedBuilding = buildings.find(building => building.name === currentBuilding);
+      const matchedBuilding = buildings.find((building: { name: any; }) => building.name === currentBuilding);
       if (matchedBuilding) {
         setSelectedBuildingId(matchedBuilding.id);
         setSelectedBuildingName(matchedBuilding.name);
@@ -311,7 +311,7 @@ const App = () => {
               <p>Building:
                 <select value={selectedBuildingId} onChange={handleBuildingChange}>
                   <option value="">Select a building</option>
-                  {buildings.map((building) => (
+                  {buildings.map((building: any) => (
                     <option key={building.id} value={building.id}>
                       {building.name}
                     </option>
@@ -332,7 +332,7 @@ const App = () => {
           <label htmlFor="prestages">Select Prestage:</label>
           <select id="prestages" value={selectedPrestage} onChange={handlePrestageChange}>
             <option value="">Select a Prestage</option>
-            {prestages.map(prestage => (
+            {prestages.map((prestage: any) => (
               <option key={prestage.id} value={prestage.id}>
                 {prestage.displayName}
               </option>
