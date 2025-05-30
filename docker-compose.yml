@@ -20,7 +20,7 @@ services:
       - ./nginx.conf:/etc/nginx/conf.d/default.conf
     develop:
       watch:
-        - action: sync+restart
+        - action: rebuild
           path: ./client/
           target: /app/
 
@@ -41,7 +41,7 @@ services:
       - ./server.cert:/app/server.cert
     develop:
       watch:
-        - action: sync+restart
+        - action: rebuild
           path: ./server/
           target: /app/
 
