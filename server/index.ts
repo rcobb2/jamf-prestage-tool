@@ -15,7 +15,7 @@ const clientSecret: string = process.env.CLIENT_SECRET as string;
 const tokenUrl: string = `${baseUrl}/api/oauth/token`;
 
 app.use(cors());
-app.use(express.json()); // Middleware to parse JSON bodies
+app.use(express.json());
 
 // Load SSL certificates
 const sslOptions: https.ServerOptions = {
