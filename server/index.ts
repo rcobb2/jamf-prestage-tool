@@ -136,127 +136,92 @@ async function getPrestages(): Promise<{ id: number; displayName: string; versio
 }
 
 // Endpoint to search for matching records and collate their data
-app.get('/api/data/:search', async (req, res) => {
-  const { search } = req.params;
-  console.log(`Received request for search: ${search}`);
+app.get('/api/data/:search', async (req: express.Request, res: express.Response) => {
+  const { search } = req.params as { search: string };
   try {
     const computers = await matchComputer(search);
     const token = await getToken();
-    let allComputerData = [];
+    let results: any[] = [];
 
     if (computers.length === 0) {
-      // No computers found, get Device Enrollment Instances
-      const deviceEnrollmentInstancesUrl = `${baseUrl}/api/v1/device-enrollments?page=0&page-size=100&sort=id%3Aasc`;
-      const deviceEnrollmentInstancesResponse = await axios.get(deviceEnrollmentInstancesUrl, {
-        headers: {
-          accept: 'application/json',
-          Authorization: `Bearer ${token}`
+      // Search device enrollments if no computers found
+      const enrollmentsRes = await axios.get<{ results: any[] }>(
+        `${baseUrl}/api/v1/device-enrollments?page=0&page-size=100`,
+        {
+          headers: { accept: 'application/json', Authorization: `Bearer ${token}` }
         }
-      });
-
-      const deviceEnrollmentInstances = deviceEnrollmentInstancesResponse.data.results;
-
-      for (const instance of deviceEnrollmentInstances) {
-        const instanceId = instance.id;
-        const instanceDetailsUrl = `${baseUrl}/api/v1/device-enrollments/${instanceId}/devices`;
-        const instanceDetailsResponse = await axios.get(instanceDetailsUrl, {
-          headers: {
-            accept: 'application/json',
-            Authorization: `Bearer ${token}`
+      );
+      for (const instance of enrollmentsRes.data.results) {
+        const devicesRes = await axios.get<{ results: any[] }>(
+          `${baseUrl}/api/v1/device-enrollments/${instance.id}/devices`,
+          {
+            headers: { accept: 'application/json', Authorization: `Bearer ${token}` }
           }
-        });
-
-        const devices = instanceDetailsResponse.data.results;
-        const matchedDevices = devices.filter(device => device.serialNumber.includes(search));
-
-        const preloadDataPromises = matchedDevices.map(async (device) => {
-          const { serialNumber } = device;
-
-          // API call to fetch inventory preload records
-          const preloadApiUrl = `${baseUrl}/api/v2/inventory-preload/records?page=0&page-size=100&sort=id%3Aasc&filter=serialNumber%3D%3D${serialNumber}`;
-          const preloadResponse = await axios.get(preloadApiUrl, {
-            headers: {
-              Authorization: `Bearer ${token}`
-            }
+        );
+        for (const device of devicesRes.data.results.filter((d: any) => d.serialNumber.includes(search))) {
+          const preloadRes = await axios.get<{ results: any[] }>(
+            `${baseUrl}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${device.serialNumber}`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const preload = preloadRes.data.results[0] || {};
+          results.push({
+            serial_number: device.serialNumber,
+            preloadId: preload.id,
+            username: preload.username,
+            email: preload.emailAddress,
+            building: preload.building,
+            room: preload.room
           });
-
-          const preloadData = preloadResponse.data.results[0] || {}; // Assuming the first result is the relevant one
-          const { id: preloadId, username, emailAddress, building, room } = preloadData;
-
-          return {
-            serial_number: serialNumber,
-            preloadId, // Include the preload id
-            username,
-            email: emailAddress,
-            building,
-            room
-          };
-        });
-
-        const instancePreloadData = await Promise.all(preloadDataPromises);
-        allComputerData = allComputerData.concat(instancePreloadData);
+        }
       }
     } else {
-      // Computers found, process the results
-      const computerDataPromises = computers.map(async ({ id, serial_number }) => {
-        const apiUrl = `${baseUrl}/api/v1/computers-inventory/${id}?section=GENERAL`;
-        const response = await axios.get(apiUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        const { id: computerId, general } = response.data;
-        const name = general?.name || 'N/A';
-        const assetTag = general?.assetTag || 'N/A';
-        const objectName = general?.enrollmentMethod?.objectName || 'No Prestage Found.';
-
-        const prestageAssignment = await getPrestageAssignments(serial_number);
-
-        // New API call to fetch inventory preload records
-        const preloadApiUrl = `${baseUrl}/api/v2/inventory-preload/records?page=0&page-size=100&sort=id%3Aasc&filter=serialNumber%3D%3D${serial_number}`;
-        const preloadResponse = await axios.get(preloadApiUrl, {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        const preloadData = preloadResponse.data.results[0] || {}; // Assuming the first result is the relevant one
-        const { id: preloadId, username, emailAddress, building, room } = preloadData;
-
-        return {
-          computerId,
-          name,
-          assetTag,
-          enrollmentObjectName: objectName,
-          serial_number,
-          currentPrestage: prestageAssignment.displayName,
-          preloadId, // Include the preload id
-          username,
-          email: emailAddress,
-          building,
-          room
-        };
-      });
-
-      allComputerData = await Promise.all(computerDataPromises);
+      // Found computers, get details
+      results = await Promise.all(
+        computers.map(async ({ id, serial_number }: { id: number; serial_number: string }) => {
+          const [compRes, prestage, preloadRes] = await Promise.all([
+            axios.get<{ id: number; general: any }>(
+              `${baseUrl}/api/v1/computers-inventory/${id}?section=GENERAL`,
+              {
+                headers: { Authorization: `Bearer ${token}` }
+              }
+            ),
+            getPrestageAssignments(serial_number),
+            axios.get<{ results: any[] }>(
+              `${baseUrl}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${serial_number}`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            )
+          ]);
+          const general = compRes.data.general || {};
+          const preload = preloadRes.data.results[0] || {};
+          return {
+            computerId: compRes.data.id,
+            name: general.name || 'N/A',
+            assetTag: general.assetTag || 'N/A',
+            enrollmentObjectName: general.enrollmentMethod?.objectName || 'No Prestage Found.',
+            serial_number,
+            currentPrestage: prestage.displayName,
+            preloadId: preload.id,
+            username: preload.username,
+            email: preload.emailAddress,
+            building: preload.building,
+            room: preload.room
+          };
+        })
+      );
     }
 
-    console.log('All Computer Data:', allComputerData);
-
-    if (allComputerData.length === 0) {
+    if (results.length === 0) {
       res.status(404).send('No computers found');
     } else {
-      res.json(allComputerData);
+      res.json(results);
     }
   } catch (error) {
-    console.error('Error fetching data:', error);
     res.status(500).send('Error fetching data');
   }
 });
 
 // Endpoint to get prestages
-app.get('/api/prestages', async (req, res) => {
+app.get('/api/prestages', async (req: express.Request, res: express.Response) => {
   try {
     const prestages = await getPrestages();
     res.json(prestages);
@@ -266,17 +231,16 @@ app.get('/api/prestages', async (req, res) => {
 });
 
 // Endpoint to get buildings
-app.get('/api/buildings', async (req, res) => {
+app.get('/api/buildings', async (req: express.Request, res: express.Response) => {
   try {
     const token = await getToken();
     const apiUrl = `${baseUrl}/api/v1/buildings?page=0&page-size=100&sort=id%3Aasc`;
-    const response = await axios.get(apiUrl, {
+    const response = await axios.get<{ results: any[] }>(apiUrl, {
       headers: {
         accept: 'application/json',
         Authorization: `Bearer ${token}`
       }
     });
-    //console.log(response.data.results);
     res.json(response.data.results);
   } catch (error) {
     console.error('Error fetching buildings:', error);
@@ -285,38 +249,33 @@ app.get('/api/buildings', async (req, res) => {
 });
 
 // Endpoint to remove a device from a prestage
-app.post('/api/remove-from-prestage', async (req, res) => {
-  const { serialNumber, currentPrestage } = req.body;
+app.post('/api/remove-from-prestage', async (req: express.Request, res: express.Response) => {
+  const { serialNumber, currentPrestage } = req.body as { serialNumber: string; currentPrestage: string };
 
   try {
     const prestages = await getPrestages();
     const prestage = prestages.find(p => p.displayName === currentPrestage);
-
     if (!prestage) {
       res.status(404).send('Prestage not found');
       return;
     }
 
     const token = await getToken();
-    const options = {
-      method: 'POST',
-      url: `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      data: {
+    const response = await axios.post(
+      `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
+      {
         serialNumbers: [serialNumber],
         versionLock: prestage.versionLock
+      },
+      {
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
       }
-    };
-
-    const response = await axios.request(options);
-    console.log('Remove from Prestage API Response:', response.data); // Log the response body
-
+    );
     res.json(response.data);
-
   } catch (error) {
     console.error('Error removing device from prestage:', error);
     res.status(500).send('Error removing device from prestage');
@@ -324,131 +283,122 @@ app.post('/api/remove-from-prestage', async (req, res) => {
 });
 
 // Endpoint to add a device to a prestage
-app.post('/api/add-to-prestage', async (req, res) => {
-  const { serialNumber, prestageId } = req.body;
+app.post('/api/add-to-prestage', async (req: express.Request, res: express.Response) => {
+  const { serialNumber, prestageId } = req.body as { serialNumber: string; prestageId: number };
 
   try {
     const prestages = await getPrestages();
     const prestage = prestages.find(p => p.id === prestageId);
-
     if (!prestage) {
       res.status(404).send('Prestage not found');
       return;
     }
 
     const token = await getToken();
-    const options = {
-      method: 'POST',
-      url: `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope`,
-      headers: {
-        accept: 'application/json',
-        'content-type': 'application/json',
-        Authorization: `Bearer ${token}`
-      },
-      data: {
+    const response = await axios.post(
+      `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope`,
+      {
         serialNumbers: [serialNumber],
         versionLock: prestage.versionLock
+      },
+      {
+        headers: {
+          accept: 'application/json',
+          'content-type': 'application/json',
+          Authorization: `Bearer ${token}`
+        }
       }
-    };
-
-    const response = await axios.request(options);
-    //console.log('Add to Prestage API Response:', response.data); // Log the response body
+    );
     res.json(response.data);
-  } catch (error) {
-    if (error.response && error.response.status === 400) {
-      console.error('Error adding device to prestage:', error);
+  } catch (error: any) {
+    const status = error?.response?.status;
+    if (status === 400) {
       res.status(400).send('Please remove from current prestage before adding');
-    } else {
-      console.error('Error adding device to prestage:', error);
-      res.status(500).send('Error adding device to prestage');
+      return;
     }
+    res.status(500).send('Error adding device to prestage');
   }
 });
 
 // Endpoint to update Preload information
-app.put('/api/update-preload/:preloadId/:computerId', async (req, res) => {
-  const { preloadId, computerId } = req.params;
-  const { serialNumber, username, emailAddress, building, room, assetTag, buildingId } = req.body;
+app.put('/api/update-preload/:preloadId/:computerId', async (req: express.Request, res: express.Response) => {
+  const { preloadId, computerId } = req.params as { preloadId: string; computerId: string };
+  const {
+    serialNumber,
+    username,
+    emailAddress,
+    building,
+    room,
+    assetTag,
+    buildingId
+  }: {
+    serialNumber: string;
+    username: string;
+    emailAddress: string;
+    building: string;
+    room: string;
+    assetTag: string;
+    buildingId: number;
+  } = req.body;
 
-  const updateData = {
+  const preloadData = {
     deviceType: 'Computer',
     serialNumber,
     username,
     emailAddress,
-    building, // Use the selected building name
+    building,
     room,
-    assetTag  // Added assetTag for preload data
+    assetTag
   };
 
-  const computerUpdateData = {
-    general: { assetTag }, // assetTag is independent of serialnumber
+  const computerData = {
+    general: { assetTag },
     userAndLocation: {
       username,
       email: emailAddress,
-      buildingId, // Use the selected building ID
+      buildingId,
       room
     }
   };
 
   try {
     const token = await getToken();
-    let preloadResponse;
-    let computerResponse;
 
     // Update or create preload record
-    if (preloadId && preloadId !== 'null') {
-      const preloadApiUrl = `${baseUrl}/api/v2/inventory-preload/records/${preloadId}`;
-      preloadResponse = await axios.put(preloadApiUrl, updateData, {
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
-    } else {
-      const preloadApiUrl = `${baseUrl}/api/v2/inventory-preload/records`;
-      preloadResponse = await axios.post(preloadApiUrl, updateData, {
-        headers: {
-          accept: 'application/json',
-          'content-type': 'application/json',
-          Authorization: `Bearer ${token}`
-        }
-      });
-    }
+    const preloadApiUrl =
+      preloadId && preloadId !== 'null'
+        ? `${baseUrl}/api/v2/inventory-preload/records/${preloadId}`
+        : `${baseUrl}/api/v2/inventory-preload/records`;
+
+    const preloadMethod = preloadId && preloadId !== 'null' ? 'put' : 'post';
+    const preloadResponse = await (axios as any)[preloadMethod](preloadApiUrl, preloadData, {
+      headers: {
+        accept: 'application/json',
+        'content-type': 'application/json',
+        Authorization: `Bearer ${token}`
+      }
+    });
 
     // Update computer information
     try {
       const computerApiUrl = `${baseUrl}/api/v1/computers-inventory-detail/${computerId}`;
-      computerResponse = await axios.patch(computerApiUrl, computerUpdateData, {
+      const computerResponse = await axios.patch(computerApiUrl, computerData, {
         headers: {
           accept: 'application/json',
           'content-type': 'application/json',
           Authorization: `Bearer ${token}`
         }
       });
-      res.json({ preloadResponse: preloadResponse.data, computerResponse: computerResponse.data });
-    } catch (computerError) {
-      console.error('Error updating computer information:', computerError);
-      res.json({ preloadResponse: preloadResponse.data, computerResponse: null, error: 'Failed to update computer information' });
+      res.json({ preload: preloadResponse.data, computer: computerResponse.data });
+    } catch {
+      res.json({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' });
     }
-  } catch (preloadError) {
-    console.error('Error updating/creating preload information:', preloadError);
-
-    if (preloadError.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      console.error('Error response data:', preloadError.response.data);
-      console.error('Error response status:', preloadError.response.status);
-      console.error('Error response headers:', preloadError.response.headers);
-      res.status(preloadError.response.status).send(preloadError.response.data);
-    } else if (preloadError.request) {
-      // The request was made but no response was received
-      console.error('Error request data:', preloadError.request);
-      res.status(500).send('No response received from the server');
+  } catch (err: any) {
+    const { response } = err;
+    if (response) {
+      res.status(response.status).send(response.data);
     } else {
-      // Something happened in setting up the request that triggered an Error
-      console.error('Error message:', preloadError.message);
-      res.status(500).send('Error in setting up the request');
+      res.status(500).send('Error updating preload/computer information');
     }
   }
 });
