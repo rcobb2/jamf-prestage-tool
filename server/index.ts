@@ -8,23 +8,23 @@ import https from 'https';
 dotenv.config(); // Load environment variables from .env file
 
 const app = express();
-const port = process.env.PORT;
-const baseUrl = process.env.BASE_URL;
-const clientId = process.env.CLIENT_ID;
-const clientSecret = process.env.CLIENT_SECRET;
-const tokenUrl = `${baseUrl}/api/oauth/token`;
+const port: number = Number(process.env.PORT);
+const baseUrl: string = process.env.BASE_URL as string;
+const clientId: string = process.env.CLIENT_ID as string;
+const clientSecret: string = process.env.CLIENT_SECRET as string;
+const tokenUrl: string = `${baseUrl}/api/oauth/token`;
 
 app.use(cors());
 app.use(express.json()); // Middleware to parse JSON bodies
 
 // Load SSL certificates
-const sslOptions = {
+const sslOptions: https.ServerOptions = {
   key: fs.readFileSync('/app/server.key'),
   cert: fs.readFileSync('/app/server.cert')
 };
 
 // Get the access token using client credentials
-async function getToken() {
+async function getToken(): Promise<string> {
   const data = [
     `grant_type=client_credentials`,
     `client_id=${encodeURIComponent(clientId)}`,
@@ -32,12 +32,105 @@ async function getToken() {
   ].join('&');
 
   try {
-    const response = await axios.post(tokenUrl, data, {
+    const response = await axios.post<{ access_token: string }>(tokenUrl, data, {
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
     });
     return response.data.access_token;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Failed to get access token:', error.message);
+    throw error;
+  }
+}
+
+// Type definition for the computer match response
+type ComputerMatch = {
+  id: number;
+  serial_number: string;
+};
+
+// Function to match records and return JSS Id and Serial Number
+async function matchComputer(search: string): Promise<ComputerMatch[]> {
+  try {
+    const token = await getToken();
+    const apiUrl = `${baseUrl}/JSSResource/computers/match/${search}`;
+    const response = await axios.get(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    if (response.data && response.data.computers && Array.isArray(response.data.computers)) {
+      return response.data.computers.map((item: any) => ({
+        id: item.id,
+        serial_number: item.serial_number
+      })) as ComputerMatch[];
+    } else {
+      throw new Error('Unexpected response format');
+    }
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    throw error;
+  }
+}
+
+// Function to get a serial number's assigned prestage
+async function getPrestageAssignments(serialNumber: string): Promise<{ serialNumber: string; displayName: string }> {
+  try {
+    const token = await getToken();
+    const apiUrl = `${baseUrl}/api/v2/computer-prestages/scope`;
+    const response = await axios.get<{ serialsByPrestageId: Record<string, number> }>(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        accept: 'application/json'
+      }
+    });
+
+    const assignments = response.data.serialsByPrestageId;
+    const prestages = await getPrestages();
+    const prestageId = assignments[serialNumber];
+
+    if (prestageId) {
+      const prestage = prestages.find((p: { id: number }) => p.id === prestageId);
+      if (prestage) {
+        return {
+          serialNumber,
+          displayName: prestage.displayName
+        };
+      }
+    }
+    return {
+      serialNumber,
+      displayName: 'Unassigned'
+    };
+  } catch (error) {
+    console.error('Error fetching prestage assignments:', error);
+    throw error;
+  }
+}
+
+// Function to parse response and get the id field
+function getIdField(computers: { id: number }[]): number[] {
+  return computers.map(item => item.id);
+}
+
+// Function to get prestages from
+async function getPrestages(): Promise<{ id: number; displayName: string; versionLock: string }[]> {
+  try {
+    const token = await getToken();
+    const apiUrl = `${baseUrl}/api/v3/computer-prestages?page=0&page-size=100&sort=id%3Adesc`;
+    const response = await axios.get<{ results: { id: number; displayName: string; versionLock?: string }[] }>(apiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    return response.data.results.map((prestage) => ({
+      id: prestage.id,
+      displayName: prestage.displayName,
+      versionLock: prestage.versionLock || 'N/A'
+    }));
+  } catch (error) {
+    console.error('Error fetching data:', error);
     throw error;
   }
 }
@@ -161,106 +254,6 @@ app.get('/api/data/:search', async (req, res) => {
     res.status(500).send('Error fetching data');
   }
 });
-
-// Function to match records and return JSS Id and Serial Number
-const matchComputer = async (search) => {
-  try {
-    const token = await getToken();
-    const apiUrl = `${baseUrl}/JSSResource/computers/match/${search}`;
-    const response = await axios.get(apiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    //console.log('API Response:', response.data);
-
-    if (response.data && response.data.computers && Array.isArray(response.data.computers)) {
-      return response.data.computers.map(item => ({
-        id: item.id,
-        serial_number: item.serial_number
-      })); // Return the array of objects with id and serial_number
-    } else {
-      throw new Error('Unexpected response format');
-    }
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    throw error; // Throw error to be handled by the calling function
-  }
-};
-
-// Function to get a serial number's assigned prestage
-const getPrestageAssignments = async (serialNumber) => {
-  try {
-    const token = await getToken();
-    const apiUrl = `${baseUrl}/api/v2/computer-prestages/scope`;
-    const response = await axios.get(apiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        accept: 'application/json'
-      }
-    });
-    //console.log('Prestage Assignments API Response:', response.data);
-
-    const assignments = response.data.serialsByPrestageId;
-    //console.log('Assignments:', assignments);
-
-    const prestages = await getPrestages();
-    //console.log('Prestages:', prestages);
-
-    // Directly get the prestage ID using the serial number as the key
-    const prestageId = assignments[serialNumber];
-
-    //console.log(`Serial Number: ${serialNumber}`);
-    //console.log(`Found Prestage ID: ${prestageId}`);
-
-    if (prestageId) {
-      const prestage = prestages.find(p => p.id === prestageId);
-      console.log(`Matched Prestage: ${prestage ? prestage.displayName : 'None'}`);
-      if (prestage) {
-        return {
-          serialNumber,
-          displayName: prestage.displayName
-        };
-      }
-    }
-    return {
-      serialNumber,
-      displayName: 'Unassigned'
-    };
-  } catch (error) {
-    console.error('Error fetching prestage assignments:', error);
-    throw error;
-  }
-};
-
-// Function to parse response and get the id field
-const getIdField = (computers) => {
-  return computers.map(item => item.id);
-};
-
-// Function to get prestages from
-const getPrestages = async () => {
-  try {
-    const token = await getToken();
-    const apiUrl = `${baseUrl}/api/v3/computer-prestages?page=0&page-size=100&sort=id%3Adesc`;
-    const response = await axios.get(apiUrl, {
-      headers: {
-        Authorization: `Bearer ${token}`
-      }
-    });
-    //console.log('API Response:', response.data);
-
-    // Filter the response to only include id, displayName, and versionLock
-    return response.data.results.map(prestage => ({
-      id: prestage.id,
-      displayName: prestage.displayName,
-      versionLock: prestage.versionLock || 'N/A' // Handle cases where accountSettings might be null
-    }));
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    throw error;
-  }
-};
 
 // Endpoint to get prestages
 app.get('/api/prestages', async (req, res) => {
