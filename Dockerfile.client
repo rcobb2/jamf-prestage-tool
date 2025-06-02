@@ -1,0 +1,47 @@
+FROM oven/bun:latest AS build
+
+WORKDIR /app
+
+# Install dependencies
+COPY bun.lock package.json tsconfig.json ./
+RUN bun install --production
+
+# Copy client source code, and use the subdirectory to avoid user access to the certificates
+COPY client/. /app/client/.
+
+# Move the serve.ts file to root
+RUN mv /app/client/*.ts /app/.
+
+# Build the client app.ts
+RUN bun build main.ts --production --minify --target="browser" --outfile client/main.bundle.js
+
+FROM nginx:stable-bookworm
+
+# Copy the build output
+COPY --from=build /app/client/ /usr/share/nginx/html/
+
+# Copy SSL certificates and Nginx configuration
+COPY server.key /etc/ssl/private/server.key
+COPY server.cert /etc/ssl/certs/server.cert
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+
+# Expose the port for the client server
+EXPOSE 443
+
+# Start the client server
+# CMD [ "bun", "run", "serve.ts" ]
+CMD ["nginx", "-g", "daemon off;"]
+
+# Should result in the following directory structure:
+# /app
+# ├── node_modules/
+# ├── serve.ts
+# ├── package.json
+# ├── tsconfig.json
+# ├── server.cert
+# ├── server.key
+# ├── bun.lock
+# └── client/
+#     ├── app.bundle.js
+#     ├── index.html
+#     └── any other assets

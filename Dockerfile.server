@@ -1,0 +1,14 @@
+FROM oven/bun:latest AS build
+
+WORKDIR /app
+
+# Install dependencies
+COPY bun.lock package.json tsconfig.json ./
+RUN bun install --production
+
+# Copy server code
+COPY server/. .
+
+EXPOSE 8443
+
+CMD [ "bun", "run", "server.ts" ]

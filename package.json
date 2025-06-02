@@ -1,0 +1,21 @@
+{
+  "name": "jamf-preload-tool-v2",
+  "module": "server.ts",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
+  },
+  "private": true,
+  "scripts": {
+    "start:server": "bun run server/server.ts",
+    "start:client": "bun build client/app.js --production --minify --target=browser --outfile client/app.bundle.js; bun run client/server.ts"
+  },
+  "type": "module",
+  "dependencies": {
+    "@types/alpinejs": "^3.13.11",
+    "alpinejs": "^3.14.9",
+    "axios": "^1.9.0"
+  }
+}

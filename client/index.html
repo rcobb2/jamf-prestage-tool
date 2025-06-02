@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Jamf Prestage Tool</title>
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.x.x"></script>
+  <script type="module" src="./main.bundle.js"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body class="dark dark:bg-gray-900 dark:text-gray-100 transition-colors">
+  <!-- Title & toggle theme button -->
+  <header class="bg-gray-100 dark:bg-gray-900 p-4 transition-colors">
+    <div class="mx-auto flex justify-between items-center">
+      <h1 class="text-lg font-semibold text-gray-900 dark:text-white">Jamf Prestage Tool</h1>
+      <div class="relative w-full max-w-xl">
+        <input @keydown.enter="" type="text" placeholder="Search..." class="w-full rounded px-3 py-2 bg-gray-200 text-gray-900 focus:outline-none dark:bg-gray-700 dark:text-white pr-10 transition-colors" />
+        <button class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-700 dark:text-white focus:outline-none cursor-pointer transition-colors">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" />
+          </svg>
+        </button>
+      </div>
+      <!-- <button @click="toggleDarkMode()" class="rounded bg-gray-300 dark:bg-gray-600 px-10 py-2 text-gray-900 dark:text-white focus:outline-none transition-colors cursor-pointer">Toggle Theme</button> -->
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main x-data="app()" class="flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 transition-colors pt-0 mt-15">
+    <div class="w-full max-w-4xl flex flex-col items-center space-y-6">
+
+      <!-- JSON Data Box -->
+      <div class="w-full bg-white dark:bg-gray-800 rounded shadow p-6 transition-colors">
+        <template x-if="Object.keys(data).length">
+          <form class="space-y-4">
+            <template x-for="[key, value] in Object.entries(data)" :key="key">
+              <div class="flex flex-col md:flex-row md:items-center md:space-x-16 mb-2">
+                <label class="w-40 font-semibold text-gray-700 dark:text-gray-200" x-text="key[0].toUpperCase() + key.slice(1)"></label>
+                <input type="text" class="flex-1 px-3 py-2 rounded focus:ring dark:bg-gray-700 dark:text-gray-100" :value="value" @input="data[key] = $event.target.value" />
+              </div>
+            </template>
+          </form>
+        </template>
+        <template x-if="typeof data === 'undefined' || !Object.keys(data).length"></template>
+        <div class="text-gray-500 dark:text-gray-300 text-center py-4 italic">No data loaded.</div>
+        </template>
+
+        <!-- Prestage Dropdown -->
+        <div class="mt-6 flex flex-col md:flex-row md:items-center md:space-x-16 mb-2">
+          <label for="prestage" class="w-40 font-semibold text-gray-700 dark:text-gray-200 mb-2 md:mb-0">Prestage</label>
+          <select id="prestage" class="flex-1 px-3 py-2 rounded focus:ring dark:bg-gray-700 dark:text-gray-100 cursor-pointer">
+            <option value="default">Select Prestage</option>
+            <option value="test" disabled>TEST OPTION</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- Pagination w/ Send Button -->
+      <div class="flex w-full gap-2">
+        <button @click="prev" class="flex-1 h-10 rounded bg-gray-300 dark:bg-gray-700 text-white text-sm cursor-pointer">Previous</button>
+        <button @click="app()" class="flex-1 h-10 rounded bg-green-500 dark:bg-green-700 text-white text-sm cursor-pointer">Send</button>
+        <button @click="next" class="flex-1 h-10 rounded bg-blue-500 dark:bg-blue-700 text-white text-sm cursor-pointer">Next</button>
+      </div>
+    </div>
+  </main>
+</body>
+
+</html>
