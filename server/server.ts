@@ -99,7 +99,6 @@ const server: Bun.Server = Bun.serve({
   tls: {
     key: Bun.file("server.key"),
     cert: Bun.file("server.cert"),
-    rejectUnauthorized: false,
   },
   routes: {
     "/api/prestages": {
