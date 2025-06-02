@@ -96,11 +96,11 @@ const server: Bun.Server = Bun.serve({
   development: true,
   hostname: process.env.SERVER_API_HOSTNAME,
   port: process.env.SERVER_API_PORT,
-  // tls: {
-  //   key: Bun.file("server.key"),
-  //   cert: Bun.file("server.cert"),
-  //   rejectUnauthorized: false,
-  // },
+  tls: {
+    key: Bun.file("server.key"),
+    cert: Bun.file("server.cert"),
+    rejectUnauthorized: false,
+  },
   routes: {
     "/api/prestages": {
       GET: async () => {
@@ -298,4 +298,4 @@ const server: Bun.Server = Bun.serve({
   },
 });
 
-console.log(`Client listening on ${server.url}`);
+console.log(`Server listening on ${server.url}`);

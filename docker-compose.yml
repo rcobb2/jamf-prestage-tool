@@ -27,7 +27,7 @@ services:
       - ./server.cert:/app/server.cert:ro
       - ./server.key:/app/server.key:ro
     ports:
-      - "8443:8443"
+      - "8443:443"
     develop:
       watch:
         - path: ./server
