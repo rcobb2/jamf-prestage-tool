@@ -117,7 +117,7 @@ const server: Bun.Server = Bun.serve({
 
   async fetch(req) {
     const url = new URL(req.url);
-    const method = req.method;
+    const { method } = req;
     let res: Response;
 
     // CORS preflight
