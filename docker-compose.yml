@@ -1,22 +1,24 @@
 services:
-  # client:
-  #   build:
-  #     context: .
-  #     dockerfile: Dockerfile.client
-  #     no_cache: true
-  #   env_file:
-  #     - .env
-  #   volumes:
-  #     - ./server.cert:/app/server.cert:ro
-  #     - ./server.key:/app/server.key:ro
-  #   ports:
-  #     - "443:443"
-  #   develop:
-  #     watch:
-  #       - path: ./client
-  #         action: rebuild
+  client:
+    network_mode: "host"
+    build:
+      context: .
+      dockerfile: Dockerfile.client
+      no_cache: true
+    env_file:
+      - .env
+    volumes:
+      - ./server.cert:/app/server.cert:ro
+      - ./server.key:/app/server.key:ro
+    ports:
+      - "443:443"
+    develop:
+      watch:
+        - path: ./client
+          action: rebuild
 
   server:
+    network_mode: "host"
     build:
       context: .
       dockerfile: Dockerfile.server

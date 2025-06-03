@@ -9,6 +9,6 @@ RUN bun install --production
 # Copy server code
 COPY server/. .
 
-EXPOSE 443
+EXPOSE 8443
 
 CMD [ "bun", "run", "server.ts" ]

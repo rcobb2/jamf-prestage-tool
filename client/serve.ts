@@ -7,9 +7,6 @@ const server: Bun.Server = Bun.serve({
   tls: {
     key: Bun.file("server.key"),
     cert: Bun.file("server.cert"),
-    rejectUnauthorized: false,
-    serverName: "rcobb.com",
-    requestCert: true,
   },
   fetch(req) {
     const url: URL = new URL(req.url);
