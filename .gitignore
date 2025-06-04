@@ -266,3 +266,4 @@ $RECYCLE.BIN/
 *.cert
 nginx.conf
 **/pnpm-lock.yaml
+**/app.bundle.js
