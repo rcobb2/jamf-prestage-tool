@@ -9,7 +9,7 @@
   },
   "private": true,
   "scripts": {
-    "client": "bun build client/app.ts --production --minify --target=browser --outfile client/app.bundle.js"
+    "client": "bun build client/app.ts --minify-syntax --minify-whitespace --target=browser --outfile client/app.bundle.js"
   },
   "type": "module",
   "dependencies": {

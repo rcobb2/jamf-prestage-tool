@@ -13,6 +13,9 @@ COPY client/. /app/client/.
 # Move the serve.ts file to root
 RUN mv /app/client/*.ts /app/.
 
+# Bundle the client application
+RUN bun build app.ts --minify-syntax --minify-whitespace --target=browser --outfile client/app.bundle.js
+
 # Expose the port for the client server
 EXPOSE 443
 

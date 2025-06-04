@@ -23,9 +23,4 @@ function app() {
   }
 }
 
-
-function test() {
-  console.log('test');
-}
-
-console.log('test');
+app()
