@@ -1,3 +1,4 @@
+# As of development, bun is v1.2.9
 FROM oven/bun:latest AS build
 
 WORKDIR /app
@@ -11,9 +12,6 @@ COPY client/. /app/client/.
 
 # Move the serve.ts file to root
 RUN mv /app/client/*.ts /app/.
-
-# Build the client app.ts
-RUN bun build main.ts --production --minify --target="browser" --outfile client/main.bundle.js
 
 # Expose the port for the client server
 EXPOSE 443
