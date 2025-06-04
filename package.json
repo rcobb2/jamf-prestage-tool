@@ -9,8 +9,7 @@
   },
   "private": true,
   "scripts": {
-    "start:server": "bun run server/server.ts",
-    "start:client": "bun build client/app.js --production --minify --target=browser --outfile client/app.bundle.js; bun run client/server.ts"
+    "client": "bun build client/app.ts --production --minify --target=browser --outfile client/app.bundle.js"
   },
   "type": "module",
   "dependencies": {
