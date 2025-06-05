@@ -2,7 +2,9 @@
   "name": "jamf-preload-tool-v2",
   "module": "server.ts",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/alpinejs": "^3.13.11",
+    "@types/bun": "latest",
+    "daisyui": "^5.0.43"
   },
   "peerDependencies": {
     "typescript": "^5"
@@ -13,7 +15,6 @@
   },
   "type": "module",
   "dependencies": {
-    "@types/alpinejs": "^3.13.11",
     "alpinejs": "^3.14.9",
     "axios": "^1.9.0"
   }

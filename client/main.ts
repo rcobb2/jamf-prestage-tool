@@ -21,6 +21,10 @@ function app() {
     },
     next() {
       this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
+    },
+    searchButton() {
+      console.log(this.search);
+
     }
   }
 }
