@@ -1,3 +1,5 @@
+import Alpine from 'alpinejs';
+
 function app() {
   return {
     search: '',
@@ -24,3 +26,6 @@ function app() {
 }
 
 console.log("testing");
+
+Alpine.data('app', app);
+Alpine.start();
