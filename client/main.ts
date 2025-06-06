@@ -1,20 +1,21 @@
 import Alpine from 'alpinejs';
+import axios from 'axios';
+// import "./search.ts"
 
-function app() {
+const serverURL = `${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}`;
+console.log(`Server URL: ${serverURL}`);
+
+function AlpineData() {
   return {
     search: '',
     dataIndex: 0,
-    dataList: [
-      { name: "Alice", test: "alice@example.com", role: "Admin", test2: "testess" },
-      { name: "Bob", email: "bob@example.com", role: "User" },
-      { name: "Carol", email: "carol@example.com", role: "Manager" }
-    ],
-    get data() {
+    dataList: [],
+    get getData() {
       return this.dataList[this.dataIndex] || {};
     },
     loadData() {
-      // Simulate search by cycling through data
-      this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
+      // // Simulate search by cycling through data
+      // this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
     },
     prev() {
       this.dataIndex = (this.dataIndex - 1 + this.dataList.length) % this.dataList.length;
@@ -24,12 +25,12 @@ function app() {
     },
     searchButton() {
       console.log(this.search);
-
+    },
+    prestages: async () => {
+      return await axios.get(`${serverURL}/api/prestages`)
     }
   }
 }
 
-console.log("testing");
-
-Alpine.data('app', app);
+Alpine.data('AlpineData', AlpineData);
 Alpine.start();

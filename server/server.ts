@@ -1,8 +1,8 @@
 import axios from "axios";
 
-const baseUrl = process.env.BASE_URL as string;
-const clientId = process.env.CLIENT_ID as string;
-const clientSecret = process.env.CLIENT_SECRET as string;
+const baseUrl = process.env.JAMF_INSTANCE as string;
+const clientId = process.env.JAMF_CLIENT_ID as string;
+const clientSecret = process.env.JAMF_CLIENT_SECRET as string;
 const tokenUrl = `${baseUrl}/api/oauth/token`;
 
 // CORS helper
@@ -21,7 +21,8 @@ async function getToken(): Promise<string> {
     client_id: clientId,
     client_secret: clientSecret
   }).toString();
-  const response = await axios.post<{ access_token: string }>(tokenUrl, data, {
+
+  const response = await axios.post(tokenUrl, data, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
   });
   return response.data.access_token;
