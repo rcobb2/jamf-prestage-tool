@@ -2,8 +2,9 @@ import Alpine from 'alpinejs';
 import axios from 'axios';
 // import "./search.ts"
 
-const serverURL = `${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}`;
-console.log(`Server URL: ${serverURL}`);
+const apiURL = `https://${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}`;
+console.log(`Server URL: ${apiURL}`);
+
 
 function AlpineData() {
   return {
@@ -26,8 +27,9 @@ function AlpineData() {
     searchButton() {
       console.log(this.search);
     },
-    prestages: async () => {
-      return await axios.get(`${serverURL}/api/prestages`)
+
+    async prestages() {
+      return await axios.get(`${apiURL}/api/prestages`)
     }
   }
 }
