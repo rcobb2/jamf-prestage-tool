@@ -16,13 +16,11 @@ function setCORSHeaders(res: ResponseInit): ResponseInit {
 
 // Get the access token using client credentials
 async function getToken(): Promise<string> {
-  const data = new URLSearchParams({
+  const response = await axios.post(tokenUrl, {
     grant_type: "client_credentials",
     client_id: clientId,
     client_secret: clientSecret
-  }).toString();
-
-  const response = await axios.post(tokenUrl, data, {
+  }, {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
   });
   return response.data.access_token;
