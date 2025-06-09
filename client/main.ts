@@ -5,18 +5,17 @@ import axios from 'axios';
 const apiURL = `https://${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}`;
 console.log(`Server URL: ${apiURL}`);
 
-
-function AlpineData() {
+function createAlpineData() {
   return {
     search: '',
     dataIndex: 0,
     dataList: [],
-    get getData() {
+    prestages: [],
+    get currentData() {
       return this.dataList[this.dataIndex] || {};
     },
     loadData() {
-      // // Simulate search by cycling through data
-      // this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
+      return 'test';
     },
     prev() {
       this.dataIndex = (this.dataIndex - 1 + this.dataList.length) % this.dataList.length;
@@ -27,12 +26,14 @@ function AlpineData() {
     searchButton() {
       console.log(this.search);
     },
-
-    async prestages() {
-      return await axios.get(`${apiURL}/api/prestages`)
+    async fetchPrestages() {
+      const response = await axios.get(`${apiURL}/api/prestages`);
+      this.prestages = response.data;
+      console.log(`Fetched prestages: ${this.prestages.length}`);
     }
   }
 }
 
-Alpine.data('AlpineData', AlpineData);
+Alpine.data('AlpineData', createAlpineData);
+
 Alpine.start();

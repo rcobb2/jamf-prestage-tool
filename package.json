@@ -3,8 +3,7 @@
   "module": "server.ts",
   "devDependencies": {
     "@types/alpinejs": "^3.13.11",
-    "@types/bun": "latest",
-    "daisyui": "^5.0.43"
+    "@types/bun": "latest"
   },
   "peerDependencies": {
     "typescript": "^5"

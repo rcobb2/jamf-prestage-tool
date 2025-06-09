@@ -31,26 +31,29 @@
 
       <!-- JSON Data Box -->
       <div class="w-full bg-white dark:bg-gray-800 rounded shadow p-6 transition-colors">
-        <template x-if="Object.keys(getData).length">
+        <template x-if="Object.keys(currentData).length">
           <form class="space-y-4">
-            <template x-for="[key, value] in Object.entries(getData)" :key="key">
+            <template x-for="[key, value] in Object.entries(currentData)" :key="key">
               <div class="flex flex-col md:flex-row md:items-center md:space-x-16 mb-2">
                 <label class="w-40 font-semibold text-gray-700 dark:text-gray-200" x-text="key[0].toUpperCase() + key.slice(1)"></label>
-                <input type="text" class="flex-1 px-3 py-2 rounded focus:ring dark:bg-gray-700 dark:text-gray-100" :value="value" @input="getData[key] = $event.target.value" />
+                <input type="text" class="flex-1 px-3 py-2 rounded focus:ring dark:bg-gray-700 dark:text-gray-100" :value="value" @input="currentData[key] = $event.target.value" />
               </div>
             </template>
           </form>
         </template>
-        <template x-if="typeof getData === 'undefined' || !Object.keys(getData).length"></template>
-        <div class="text-gray-500 dark:text-gray-300 text-center py-4 italic">No data loaded.</div>
+        <template x-if="typeof currentData === 'undefined' || !Object.keys(currentData).length">
+          <div class="text-gray-500 dark:text-gray-300 text-center py-4 italic">No data loaded.</div>
         </template>
 
         <!-- Prestage Dropdown -->
         <div class="mt-6 flex flex-col md:flex-row md:items-center md:space-x-16 mb-2">
           <label for="prestage" class="w-40 font-semibold text-gray-700 dark:text-gray-200 mb-2 md:mb-0">Prestage</label>
           <select id="prestage" class="flex-1 px-3 py-2 rounded focus:ring dark:bg-gray-700 dark:text-gray-100 cursor-pointer">
+            <!-- <option value="default">Select Prestage</option> -->
             <option value="default">Select Prestage</option>
-            <option value="test" disabled>TEST OPTION</option>
+            <template x-for="prestage in prestages">
+              <option :value="prestage.id" x-text="prestage.name"></option>
+            </template>
           </select>
         </div>
       </div>
