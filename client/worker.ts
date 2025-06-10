@@ -2,9 +2,9 @@ await Bun.build({
   entrypoints: ['./main.ts'],
   outdir: './client/',
   env: 'inline',
-  minify: true,
   target: 'browser',
   format: 'esm',
+  minify: true,
 });
 
 console.log('Client build completed successfully.');
