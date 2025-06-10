@@ -3,12 +3,13 @@ import axios from "axios";
 const baseUrl = process.env.JAMF_INSTANCE as string;
 const clientId = process.env.JAMF_CLIENT_ID as string;
 const clientSecret = process.env.JAMF_CLIENT_SECRET as string;
+const server_API_URL = process.env.SERVER_API_HOSTNAME as string;
 const tokenUrl = `${baseUrl}/api/oauth/token`;
 
 // CORS helper
 function setCORSHeaders(res: ResponseInit): ResponseInit {
   const headers = new Headers();
-  headers.set("Access-Control-Allow-Origin", `${baseUrl}`);
+  headers.set("Access-Control-Allow-Origin", `https://${server_API_URL}`);
   headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,OPTIONS");
   headers.set("Access-Control-Allow-Headers", "*");
   return { ...res, headers };
