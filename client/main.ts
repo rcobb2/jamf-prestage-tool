@@ -1,8 +1,10 @@
 import Alpine from 'alpinejs';
 import AzureAuth from "./azure-auth.ts"
+import axios, { type AxiosResponse } from 'axios';
 
 const apiURL = `https://${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}/api`;
 console.log(`Server URL: ${apiURL}`);
+axios.defaults.baseURL = apiURL;
 
 function createAlpineData() {
   return {
@@ -16,17 +18,18 @@ function createAlpineData() {
     get currentData() {
       return this.dataList[this.dataIndex] || {};
     },
-    loadData() {
-      return 'test';
-    },
     prev() {
       this.dataIndex = (this.dataIndex - 1 + this.dataList.length) % this.dataList.length;
     },
     next() {
       this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
     },
-    search() {
-      console.log(this.searchData);
+    async search() {
+      const response = await axios.get(`/data/${this.searchData}`);
+      this.dataList = response.data;
+      this.dataIndex = 0;
+      console.log(`Search results: ${JSON.stringify(this.dataList)}`);
+      return this.dataList;
     },
   }
 }
@@ -37,13 +40,9 @@ function fetchPrestages() {
     selectedPrestage: '',
 
     async init() {
-      try {
-        const response = await fetch(`${apiURL}/prestages`);
-        this.prestages = await response.json();
+        const response: AxiosResponse = await axios.get(`/prestages`);
+        this.prestages = await response.data;
 
-      } catch (error: any) {
-        console.error(`Error fetching prestages: ${error.message}`);
-      }
     }
   }
 }
@@ -51,7 +50,7 @@ function fetchPrestages() {
 // @ts-ignore
 window.Alpine = Alpine;
 
-Alpine.data('azureAuth', AzureAuth);
+Alpine.data('AzureAuth', AzureAuth);
 Alpine.data('prestageDropdown', fetchPrestages);
 Alpine.data('AlpineData', createAlpineData);
 
