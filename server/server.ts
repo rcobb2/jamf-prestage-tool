@@ -101,12 +101,32 @@ const server: Bun.Server = Bun.serve({
   },
   routes: {
     "/api/prestages": {
-      GET: async () => {
+      async GET() {
         try {
           const prestages = await getPrestages();
           return new Response(JSON.stringify(prestages), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
         } catch {
           return new Response('Error fetching prestages', setCORSHeaders({ status: 500 }));
+        }
+      }
+    },
+    "/api/wipedevice": {
+      async POST(req) {
+        const { computerId } = await req.json() as { computerId: number };
+        try {
+          const token = await getToken();
+          const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}/erase`;
+          const response = await axios.post(apiUrl, {
+            pin: "123456"
+          }, {
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+          });
+
+          return new Response(JSON.stringify(response.data), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+        } catch (error: any) {
+          const status = error?.response?.status;
+          const message = error?.message || 'Error wiping device';
+          return new Response(message, setCORSHeaders({ status: status }));
         }
       }
     }
