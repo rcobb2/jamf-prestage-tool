@@ -9,7 +9,11 @@ function createAlpineData() {
   return {
     search: '',
     dataIndex: 0,
-    dataList: [],
+    dataList: [
+      { name: "Alice", test: "alice@example.com", role: "Admin", test2: "testess" },
+      { name: "Bob", email: "bob@example.com", role: "User" },
+      { name: "Carol", email: "carol@example.com", role: "Manager" }
+    ],
     prestages: [],
     get currentData() {
       return this.dataList[this.dataIndex] || {};
