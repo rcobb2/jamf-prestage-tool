@@ -8,9 +8,9 @@ const tokenUrl = `${baseUrl}/api/oauth/token`;
 // CORS helper
 function setCORSHeaders(res: ResponseInit): ResponseInit {
   const headers = new Headers();
-  headers.set("Access-Control-Allow-Origin", "*");
-  headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  headers.set("Access-Control-Allow-Origin", `${baseUrl}`);
+  headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,OPTIONS");
+  headers.set("Access-Control-Allow-Headers", "*");
   return { ...res, headers };
 }
 
@@ -110,6 +110,7 @@ const server: Bun.Server = Bun.serve({
         }
       }
     },
+
     "/api/wipedevice": {
       async POST(req) {
         const { computerId } = await req.json() as { computerId: number };
@@ -129,6 +130,60 @@ const server: Bun.Server = Bun.serve({
           return new Response(message, setCORSHeaders({ status: status }));
         }
       }
+    },
+
+    "/api/data/:search": {
+      async GET(req) {
+        const { search } = req.params;
+        try {
+          const computers = await matchComputer(search);
+          const token = await getToken();
+          let results: any[] = [];
+
+          if (computers.length === 0) {
+            // ... (copy your device-enrollments fallback logic here)
+            // For simplicity it's omitted. You can adapt as above.
+          } else {
+            results = await Promise.all(
+              computers.map(async ({ id, serial_number }) => {
+                const [compRes, prestage, preloadRes] = await Promise.all([
+                  axios.get<{ id: number; general: any }>(
+                    `${baseUrl}/api/v1/computers-inventory/${id}?section=GENERAL`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  ),
+                  getPrestageAssignments(serial_number),
+                  axios.get<{ results: any[] }>(
+                    `${baseUrl}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${serial_number}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  )
+                ]);
+                const general = compRes.data.general || {};
+                const preload = preloadRes.data.results[0] || {};
+                return {
+                  computerId: compRes.data.id,
+                  name: general.name || 'N/A',
+                  assetTag: general.assetTag || 'N/A',
+                  enrollmentObjectName: general.enrollmentMethod?.objectName || 'No Prestage Found.',
+                  serial_number,
+                  currentPrestage: prestage.displayName,
+                  preloadId: preload.id,
+                  username: preload.username,
+                  email: preload.emailAddress,
+                  building: preload.building,
+                  room: preload.room
+                };
+              })
+            );
+          }
+          if (results.length === 0) {
+            return new Response('No computers found', setCORSHeaders({ status: 404 }));
+          } else {
+            return new Response(JSON.stringify(results), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+          }
+        } catch {
+          return new Response('Error fetching data', setCORSHeaders({ status: 500 }));
+        }
+      }
     }
   },
 
@@ -141,60 +196,6 @@ const server: Bun.Server = Bun.serve({
     // CORS preflight
     if (method === "OPTIONS") {
       return new Response(null, setCORSHeaders({ status: 204 }));
-    }
-
-    // /api/data/:search
-    if (url.pathname.startsWith("/api/data/") && method === "GET") {
-      const search = decodeURIComponent(url.pathname.replace("/api/data/", ""));
-      try {
-        const computers = await matchComputer(search);
-        const token = await getToken();
-        let results: any[] = [];
-
-        if (computers.length === 0) {
-          // ... (copy your device-enrollments fallback logic here)
-          // For brevity, omitted. You can adapt as above.
-        } else {
-          results = await Promise.all(
-            computers.map(async ({ id, serial_number }) => {
-              const [compRes, prestage, preloadRes] = await Promise.all([
-                axios.get<{ id: number; general: any }>(
-                  `${baseUrl}/api/v1/computers-inventory/${id}?section=GENERAL`,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                ),
-                getPrestageAssignments(serial_number),
-                axios.get<{ results: any[] }>(
-                  `${baseUrl}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${serial_number}`,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                )
-              ]);
-              const general = compRes.data.general || {};
-              const preload = preloadRes.data.results[0] || {};
-              return {
-                computerId: compRes.data.id,
-                name: general.name || 'N/A',
-                assetTag: general.assetTag || 'N/A',
-                enrollmentObjectName: general.enrollmentMethod?.objectName || 'No Prestage Found.',
-                serial_number,
-                currentPrestage: prestage.displayName,
-                preloadId: preload.id,
-                username: preload.username,
-                email: preload.emailAddress,
-                building: preload.building,
-                room: preload.room
-              };
-            })
-          );
-        }
-        if (results.length === 0) {
-          res = new Response('No computers found', setCORSHeaders({ status: 404 }));
-        } else {
-          res = new Response(JSON.stringify(results), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
-        }
-      } catch {
-        res = new Response('Error fetching data', setCORSHeaders({ status: 500 }));
-      }
-      return res;
     }
 
     // /api/buildings
