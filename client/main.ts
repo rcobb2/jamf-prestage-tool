@@ -11,7 +11,7 @@ function createAlpineData() {
   return {
     searchData: '',
     errorMessage: '',
-    selectedPrestage: '',
+    // selectedPrestage: '',
     dataIndex: 0,
     dataList: [],
 
@@ -27,16 +27,7 @@ function createAlpineData() {
     async search() {
       try {
         const response = await axios.get(`/data/${this.searchData}`);
-        this.selectedPrestage = response.data[0].currentprestage || '';
-
-        this.$nextTick(() => {
-          const select = document.querySelector('select[name="prestage"]') as HTMLSelectElement | null;
-          if (select) {
-            Array.from(select.options).forEach(option => {
-              option.selected = option.value === this.selectedPrestage;
-            });
-          }
-        });
+        // this.selectedPrestage = response.data[0].currentprestage || '';
 
         const filteredData = response.data.map(({ currentPrestage, ...rest }: any) => rest);
         this.dataList = filteredData;
