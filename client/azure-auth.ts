@@ -1,5 +1,4 @@
 import { PublicClientApplication } from '@azure/msal-browser';
-import Alpine from 'alpinejs';
 
 const msalConfig = {
   auth: {
