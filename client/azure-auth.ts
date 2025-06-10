@@ -13,7 +13,7 @@ const msalConfig = {
 };
 const msalInstance = new PublicClientApplication(msalConfig);
 
-function AzureAuth() {
+export default () => {
   return {
     isAuthenticated: false,
     errorMessage: '',
@@ -65,5 +65,3 @@ function AzureAuth() {
     }
   }
 }
-
-export default AzureAuth;
