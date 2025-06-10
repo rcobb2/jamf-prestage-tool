@@ -5,8 +5,8 @@ const server: Bun.Server = Bun.serve({
     console: true,
     hmr: false,
   },
-  hostname: process.env.CLIENT_API_HOSTNAME || "localhost",
-  port: process.env.CLIENT_API_PORT || 3000,
+  hostname: process.env.CLIENT_HOSTNAME || "localhost",
+  port: process.env.CLIENT_PORT || 3000,
   tls: {
     key: Bun.file("server.key"),
     cert: Bun.file("server.cert"),

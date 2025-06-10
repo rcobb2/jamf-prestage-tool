@@ -6,8 +6,8 @@ AZURE_CLIENT_ID=                                          # Entra Application Re
 AZURE_AUTHORITY=https://login.microsoftonline.com/        # Add your tenant ID after the slash or https://login.microsoftonline.com/common
 
 # Backend Configuration
-CLIENT_API_HOSTNAME=                                      # Hostname you want for frontend
-CLIENT_API_PORT=                                          # Port you want for frontend
+CLIENT_HOSTNAME=                                      # Hostname you want for frontend
+CLIENT_PORT=                                          # Port you want for frontend
 SERVER_API_HOSTNAME=                                      # Hostname you want for the backend
 SERVER_API_PORT=                                          # Port you want for the backend
 
