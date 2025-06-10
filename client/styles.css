@@ -1,6 +1,9 @@
-*:focus,
-*:focus-visible,
-*:focus-within {
+select,
+input[type="text"],
+input[type="search"],
+input[type="text"]:focus,
+input[type="search"]:focus {
+  border: none !important;
   outline: none !important;
   box-shadow: none !important;
 }

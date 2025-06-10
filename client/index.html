@@ -4,67 +4,115 @@
 <head>
   <meta charset="UTF-8">
   <title>Jamf Prestage Tool</title>
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5.x.x" rel="stylesheet" type="text/css" />
+  <link href="https://cdn.jsdelivr.net/npm/daisyui@5.x.x/themes.css" rel="stylesheet" type="text/css" />
   <script defer src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4.x.x"></script>
   <link rel="stylesheet" href="./styles.css">
 </head>
 
-<body class="dark dark:bg-gray-900 dark:text-gray-100 transition-colors" x-data="AlpineData">
+<body data-theme="dim" class="transition-colors min-h-screen overflow-hidden" x-data="AlpineData">
   <!-- Title & toggle theme button -->
-  <header class="bg-gray-100 dark:bg-gray-900 p-4 transition-colors">
-    <div class="mx-auto flex justify-between items-center">
-      <h1 class="text-lg font-semibold text-gray-900 dark:text-white">Jamf Prestage Tool</h1>
-      <div class="relative w-full max-w-xl">
-        <input @keydown.enter="searchButton" x-model="search" type="text" placeholder="Search..." class="w-full rounded px-3 py-2 bg-gray-200 text-gray-900 focus:outline-none dark:bg-gray-700 dark:text-white pr-10 transition-colors" />
-        <button class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-700 dark:text-white focus:outline-none cursor-pointer transition-colors">
+  <header class="navbar bg-base-200 shadow-md">
+    <div class="navbar-start">
+      <a class="btn btn-ghost text-2xl font-bold text-base-content">Jamf Prestage Tool</a>
+    </div>
+    <div class="navbar-center w-1/3">
+      <div class="join w-full">
+        <input @keydown.enter="searchButton" x-model="search" type="search" placeholder="Search..."
+          class="join-item input w-full" />
+        <button class="join-item btn bg-base-100">
           <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z" />
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
           </svg>
         </button>
       </div>
-      <button @click="toggleDarkMode()" class="rounded bg-gray-300 dark:bg-gray-600 px-10 py-2 text-gray-900 dark:text-white focus:outline-none transition-colors cursor-pointer">Toggle Theme</button>
+    </div>
+    <div class="navbar-end">
+      <select class="select" x-model="theme" @change="changeTheme($event.target.value)">
+        <option selected disabled>Theme</option>
+        <option value="light">Light</option>
+        <option value="dark">Dark</option>
+        <option value="cupcake">Cupcake</option>
+        <option value="bumblebee">Bumblebee</option>
+        <option value="emerald">Emerald</option>
+        <option value="corporate">Corporate</option>
+        <option value="synthwave">Synthwave</option>
+        <option value="retro">Retro</option>
+        <option value="cyberpunk">Cyberpunk</option>
+        <option value="valentine">Valentine</option>
+        <option value="halloween">Halloween</option>
+        <option value="garden">Garden</option>
+        <option value="forest">Forest</option>
+        <option value="aqua">Aqua</option>
+        <option value="lofi">Lofi</option>
+        <option value="pastel">Pastel</option>
+        <option value="fantasy">Fantasy</option>
+        <option value="wireframe">Wireframe</option>
+        <option value="black">Black</option>
+        <option value="luxury">Luxury</option>
+        <option value="dracula">Dracula</option>
+      </select>
     </div>
   </header>
 
   <!-- Main Content -->
-  <main class="flex flex-col items-center justify-center bg-gray-100 dark:bg-gray-900 transition-colors pt-0 mt-15">
-    <div class="w-full max-w-4xl flex flex-col items-center space-y-6">
+  <main class="flex flex-col items-center justify-start bg-base-100 w-full mt-24">
+    <section class="w-full max-w-2xl">
 
       <!-- JSON Data Box -->
-      <div class="w-full bg-white dark:bg-gray-800 rounded shadow p-6 transition-colors">
-        <template x-if="Object.keys(currentData).length">
-          <form class="space-y-4">
-            <template x-for="[key, value] in Object.entries(currentData)" :key="key">
-              <div class="flex flex-col md:flex-row md:items-center md:space-x-16 mb-2">
-                <label class="w-40 font-semibold text-gray-700 dark:text-gray-200" x-text="key[0].toUpperCase() + key.slice(1)"></label>
-                <input type="text" class="flex-1 px-3 py-2 rounded focus:ring dark:bg-gray-700 dark:text-gray-100" :value="value" @input="currentData[key] = $event.target.value" />
-              </div>
-            </template>
-          </form>
+      <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4 w-full rounded-box shadow">
+        <legend class="fieldset-legend">Data</legend>
+
+        <!-- JSON key/value fields -->
+        <template x-for="(value, name) in currentData" :key="name">
+          <span class="flex justify-between items-center w-full">
+            <label x-text="name[0].toUpperCase() + name.slice(1)" class="label text-base"></label>
+            <input type="text" class="input" @input="currentData[name] = $event.target.value" :value="value" />
+          </span>
         </template>
-        <template x-if="typeof currentData === 'undefined' || !Object.keys(currentData).length">
-          <div class="text-gray-500 dark:text-gray-300 text-center py-4 italic">No data loaded.</div>
+
+        <!-- Show only if no data -->
+        <template x-if="Object.keys(currentData).length === 0">
+          <p class="text-base-content/50 text-center py-4 italic">No data loaded.</p>
         </template>
 
         <!-- Prestage Dropdown -->
-        <div class="mt-6 flex flex-col md:flex-row md:items-center md:space-x-16 mb-2">
-          <label for="prestage" class="w-40 font-semibold text-gray-700 dark:text-gray-200 mb-2 md:mb-0">Prestage</label>
-          <select id="prestage" class="flex-1 px-3 py-2 rounded focus:ring dark:bg-gray-700 dark:text-gray-100 cursor-pointer">
-            <!-- <option value="default">Select Prestage</option> -->
-            <option value="default">Select Prestage</option>
-            <template x-for="prestage in prestages">
-              <option :value="prestage.id" x-text="prestage.name"></option>
-            </template>
-          </select>
-        </div>
-      </div>
+        <section class="mt-4">
+          <span class="flex justify-between items-center w-full">
+            <label class="label text-base">Prestage</label>
+            <select class="select" x-model="selectedPrestage" @change="onPrestageChange($event.target.value)">
+              <option selected disabled>Prestage</option>
+              <template x-for="prestage in prestages" :key="prestage.id">
+                <option :value="prestage.id" x-text="prestage.name"></option>
+              </template>
+            </select>
+          </span>
+        </section>
+      </fieldset>
 
-      <!-- Pagination w/ Send Button -->
-      <div class="flex w-full gap-2">
-        <button @click="prev" class="flex-1 h-10 rounded bg-gray-300 dark:bg-gray-700 text-white text-sm cursor-pointer">Previous</button>
-        <button @click="send" class="flex-1 h-10 rounded bg-green-500 dark:bg-green-700 text-white text-sm cursor-pointer">Send</button>
-        <button @click="next" class="flex-1 h-10 rounded bg-blue-500 dark:bg-blue-700 text-white text-sm cursor-pointer">Next</button>
-      </div>
-    </div>
+      <!-- Pagination & Send -->
+      <nav class="join mt-2 grid grid-cols-3 gap-1">
+        <button @click="prev" class="join-item btn btn-soft">
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+          Previous
+        </button>
+        <button @click="send" class="join-item btn btn-soft btn-primary flex-1">
+          Send
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
+          </svg>
+        </button>
+        <button @click="next" class="join-item btn btn-soft">
+          Next
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+          </svg>
+        </button>
+      </nav>
+    </section>
   </main>
   <script defer type="module" src="main.js"></script>
 </body>
