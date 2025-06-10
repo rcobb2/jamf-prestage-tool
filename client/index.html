@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 
-<body data-theme="dim" class="transition-colors min-h-screen overflow-hidden" x-data="AlpineData">
+<body data-theme="dim" class="transition-colors min-h-screen" x-data="AlpineData">
   <div x-data="AzureAuth">
     <div class="flex flex-col items-center justify-center min-h-screen absolute inset-0 z-10 bg-base-100" x-show="!isAuthenticated">
       <button x-show="!isAuthenticated" @click="signIn()" class="btn btn-soft btn-wide text-lg mb-4">
@@ -83,7 +83,7 @@
             <!-- JSON key/value fields -->
             <template x-for="(value, name) in currentData" :key="name">
               <span class="flex justify-between items-center w-full">
-                <label x-text="name[0].toUpperCase() + name.slice(1)" class="label text-base"></label>
+                <label x-text="name" class="label text-base"></label>
                 <input type="text" class="input" @input="currentData[name] = $event.target.value" :value="value" />
               </span>
             </template>
@@ -108,7 +108,7 @@
           </fieldset>
 
           <!-- Pagination & Send -->
-          <nav class="join mt-2 grid grid-cols-3 gap-1">
+          <nav class="join mt-2 grid grid-cols-3 gap-1 mb-20">
             <button @click="prev" class="join-item btn btn-soft">
               <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />

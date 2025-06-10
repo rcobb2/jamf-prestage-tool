@@ -1,3 +1,24 @@
+/* For WebKit browsers (Chrome, Safari, Edge) */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+  /* Ensures no space is taken by the scrollbar */
+  width: 0;
+  height: 0;
+}
+
+/* For Firefox and Internet Explorer/Edge */
+html,
+body {
+  /* For Firefox */
+  scrollbar-width: none;
+  /* For Internet Explorer and Edge */
+  -ms-overflow-style: none;
+  /* Basic default styles for the body to ensure content flow */
+  margin: 0;
+  padding: 0;
+}
+
 select,
 input[type="text"],
 input[type="search"],
