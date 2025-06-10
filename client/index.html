@@ -44,7 +44,7 @@
         </div>
         <div class="navbar-end gap-2">
           <select class="select" x-model="theme" @change="changeTheme($event.target.value)">
-            <option selected disabled>Theme</option>
+            <option value="" disabled>Theme</option>
             <option value="dim" selected>Dim</option>
             <option value="light">Light</option>
             <option value="dark">Dark</option>
@@ -88,17 +88,17 @@
               </span>
             </template>
 
-            <!-- Show only if no data -->
-            <template x-if="Object.keys(currentData).length === 0">
-              <p class="text-base-content/50 text-center py-4 italic">No data loaded.</p>
+            <!-- Only show error message if there is one -->
+            <template x-if="errorMessage">
+              <p x-show="errorMessage" class="text-red-500 text-center w-full" x-text="errorMessage"></p>
             </template>
 
             <!-- Prestage Dropdown -->
             <section class="mt-4">
-              <span class="flex justify-between items-center w-full" x-data="prestageDropdown">
+              <span class="flex justify-between items-center w-full" x-data="FetchPrestages">
                 <label class="label text-base">Prestage</label>
-                <select class="select" x-model="selectedPrestage">
-                  <option selected disabled>Prestage</option>
+                <select class="select" name="prestageDropdown">
+                  <option value="" selected disabled>Prestage</option>
                   <template x-for="prestage in prestages" :key="prestage.id">
                     <option :value="prestage.id" x-text="prestage.displayName"></option>
                   </template>

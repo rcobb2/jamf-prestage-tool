@@ -1,3 +1,4 @@
+/// <reference lib="dom" />
 import Alpine from 'alpinejs';
 import AzureAuth from "./azure-auth.ts"
 import axios, { type AxiosResponse } from 'axios';
@@ -9,12 +10,11 @@ axios.defaults.baseURL = apiURL;
 function createAlpineData() {
   return {
     searchData: '',
+    errorMessage: '',
+    selectedPrestage: '',
     dataIndex: 0,
-    dataList: [
-      { name: "Alice", test: "alice@example.com", role: "Admin", test2: "testess" },
-      { name: "Bob", email: "bob@example.com", role: "User" },
-      { name: "Carol", email: "carol@example.com", role: "Manager" }
-    ],
+    dataList: [],
+
     get currentData() {
       return this.dataList[this.dataIndex] || {};
     },
@@ -25,11 +25,32 @@ function createAlpineData() {
       this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
     },
     async search() {
-      const response = await axios.get(`/data/${this.searchData}`);
-      this.dataList = response.data;
-      this.dataIndex = 0;
-      console.log(`Search results: ${JSON.stringify(this.dataList)}`);
-      return this.dataList;
+      try {
+        const response = await axios.get(`/data/${this.searchData}`);
+        this.selectedPrestage = response.data[0].currentprestage || '';
+
+        this.$nextTick(() => {
+          const select = document.querySelector('select[name="prestage"]') as HTMLSelectElement | null;
+          if (select) {
+            Array.from(select.options).forEach(option => {
+              option.selected = option.value === this.selectedPrestage;
+            });
+          }
+        });
+
+        const filteredData = response.data.map(({ currentPrestage, ...rest }: any) => rest);
+        this.dataList = filteredData;
+        this.dataIndex = 0;
+        this.errorMessage = '';
+      } catch (error: any) {
+        if (error.response && error.response.status === 404) {
+          this.errorMessage = `No computer found for: ${this.searchData}`;
+        } else {
+          this.errorMessage = 'An error occurred while searching.';
+        }
+        this.dataList = [];
+        this.dataIndex = 0;
+      }
     },
   }
 }
@@ -40,9 +61,8 @@ function fetchPrestages() {
     selectedPrestage: '',
 
     async init() {
-        const response: AxiosResponse = await axios.get(`/prestages`);
-        this.prestages = await response.data;
-
+      const response: AxiosResponse = await axios.get(`/prestages`);
+      this.prestages = await response.data;
     }
   }
 }
@@ -51,7 +71,7 @@ function fetchPrestages() {
 window.Alpine = Alpine;
 
 Alpine.data('AzureAuth', AzureAuth);
-Alpine.data('prestageDropdown', fetchPrestages);
+Alpine.data('FetchPrestages', fetchPrestages);
 Alpine.data('AlpineData', createAlpineData);
 
 Alpine.start();
