@@ -22,7 +22,7 @@ type ComputerInfo = {
 
 function createAlpineData() {
   return {
-    theme: process.env.THEME || 'dim',
+    theme: process.env.THEME ?? 'dim',
     searchData: '',
     errorMessage: '',
     successMessage: '',
