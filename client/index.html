@@ -102,14 +102,6 @@
               </span>
             </template>
 
-            <!-- Page Indicator -->
-             <!-- TODO: MAKE THIS SHOW UP, CURRENTLY, IT ISN'T VISIBLE -->
-            <template x-if="totalPages > 1">
-              <div class="flex justify-center items-center my-4">
-                <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`">TEMP TEXT</span>
-              </div>
-            </template>
-
             <!-- Only show error message if there is one -->
             <template x-if="errorMessage">
               <p x-show="errorMessage" class="text-red-500 text-center w-full" x-text="errorMessage"></p>
@@ -122,7 +114,7 @@
                 <select class="select" name="buildingDropdown" @change="updateToBuilding = $event.target.value">
                   <option value="" selected disabled>Select Building</option>
                   <template x-for="building in buildings" :key="building.id">
-                    <option :value="building.id" x-text="building.name"></option>
+                    <option :value="building.name" x-text="building.name"></option>
                   </template>
                 </select>
               </span>
@@ -140,6 +132,14 @@
                 </select>
               </span>
             </section>
+
+            <!-- Page Indicator -->
+            <!-- TODO: MAKE THIS SHOW UP, CURRENTLY, IT ISN'T VISIBLE -->
+            <template x-if="totalPages > 1">
+              <div class="flex justify-center items-center my-4">
+                <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`">TEMP TEXT</span>
+              </div>
+            </template>
           </fieldset>
 
           <!-- Pagination & Send -->
