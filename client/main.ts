@@ -7,13 +7,30 @@ const apiURL = `https://${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_
 console.log(`Server URL: ${apiURL}`);
 axios.defaults.baseURL = apiURL;
 
+type ComputerInfo = {
+  assetTag: number,
+  preloadId: number,
+  computerId: number,
+  name: string,
+  room: string,
+  email: string,
+  building: string,
+  username: string,
+  serialNumber: string,
+  currentPrestage: string,
+  enrollmentMethod: string,
+};
+
 function createAlpineData() {
   return {
     searchData: '',
     errorMessage: '',
-    // selectedPrestage: '',
+    dataList: [] as ComputerInfo[],
+    dataListCopy: [] as ComputerInfo[],
     dataIndex: 0,
-    dataList: [],
+    totalPages: 0,
+    currentPage: 0,
+    updateToPrestage: 0,
 
     get currentData() {
       return this.dataList[this.dataIndex] || {};
@@ -24,13 +41,16 @@ function createAlpineData() {
     next() {
       this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
     },
+
     async search() {
       try {
         const response = await axios.get(`/data/${this.searchData}`);
-        // this.selectedPrestage = response.data[0].currentprestage || '';
+        // // this.selectedPrestage = response.data[0].currentprestage || '';
 
-        const filteredData = response.data.map(({ currentPrestage, ...rest }: any) => rest);
-        this.dataList = filteredData;
+        // const filteredData = response.data.map(({ currentPrestage, ...rest }: any) => rest);
+        // this.dataList = filteredData;
+        this.dataList = response.data;
+        this.dataListCopy = response.data;
         this.dataIndex = 0;
         this.errorMessage = '';
       } catch (error: any) {
@@ -43,6 +63,40 @@ function createAlpineData() {
         this.dataIndex = 0;
       }
     },
+
+    async send() {
+      try {
+        const current = this.dataList[this.dataIndex];
+        if (!current) {
+          this.errorMessage = 'No data to update.';
+          return;
+        }
+
+        // Update preload
+        // Only update if data has changed
+        const original = this.dataListCopy[this.dataIndex];
+        if (JSON.stringify(current) !== JSON.stringify(original)) {
+          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current);
+        }
+
+        // Optionally add to prestage, if updateToPrestage is set
+        if (this.updateToPrestage !== 0) {
+          await axios.post('/add-to-prestage', {
+            prestageId: this.updateToPrestage,
+            serialNumber: current.serialNumber
+          });
+        }
+
+        if (JSON.stringify(current) === JSON.stringify(original) && this.updateToPrestage === 0) {
+          this.errorMessage = 'No changes to update.';
+          return;
+        }
+
+        this.errorMessage = '';
+      } catch (error: any) {
+        this.errorMessage = `An error occurred while sending data. Error: ${error.message}`;
+      }
+    }
   }
 }
 

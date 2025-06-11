@@ -84,8 +84,15 @@
             <template x-for="(value, name) in currentData" :key="name">
               <span class="flex justify-between items-center w-full">
                 <label x-text="name" class="label text-base"></label>
-                <input type="text" class="input" @input="currentData[name] = $event.target.value" :value="value" />
+                <input type="text" class="input" @input="currentData[name] = $event.target.value" :value="value" :disabled="['computerId', 'enrollmentMethod', 'serialNumber', 'preloadId', 'name', 'currentPrestage'].includes(name)" />
               </span>
+            </template>
+
+            <!-- Page Indicator -->
+            <template x-if="totalPages > 1">
+              <div class="flex justify-center items-center my-4">
+                <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`"></span>
+              </div>
             </template>
 
             <!-- Only show error message if there is one -->
@@ -97,8 +104,8 @@
             <section class="mt-4">
               <span class="flex justify-between items-center w-full" x-data="FetchPrestages">
                 <label class="label text-base">Prestage</label>
-                <select class="select" name="prestageDropdown">
-                  <option value="" selected disabled>Prestage</option>
+                <select class="select" name="prestageDropdown" @change="updateToPrestage = $event.target.value">
+                  <option value="" selected disabled>Select Prestage</option>
                   <template x-for="prestage in prestages" :key="prestage.id">
                     <option :value="prestage.id" x-text="prestage.displayName"></option>
                   </template>
