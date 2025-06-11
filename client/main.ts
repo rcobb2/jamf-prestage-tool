@@ -55,7 +55,7 @@ function createAlpineData() {
         if (error.response && error.response.status === 404) {
           this.errorMessage = `No computer found for: ${this.searchData}`;
         } else {
-          this.errorMessage = `An error occurred while searching for data. Error: ${error.response.status}`;
+          this.errorMessage = `An error occurred while searching for data. Error: ${error.response}`;
         }
         this.dataList = [];
         this.dataIndex = 0;
@@ -114,7 +114,7 @@ function createAlpineData() {
         // Reset the error message
         this.errorMessage = '';
       } catch (error: any) {
-        this.errorMessage = `An error occurred while sending data. Error: ${error.response.status}`;
+        this.errorMessage = `An error occurred while sending data. Error: ${error.response}`;
       }
     },
 
@@ -136,7 +136,7 @@ function createAlpineData() {
         this.dataListCopy.splice(this.dataIndex, 1);
         this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
       } catch (error: any) {
-        this.errorMessage = `An error occurred while erasing data. Error: ${error.response.status}`;
+        this.errorMessage = `An error occurred while erasing data. Error: ${error.response}`;
       }
     },
   }
