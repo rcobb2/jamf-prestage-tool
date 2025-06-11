@@ -10,7 +10,7 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 
-<body data-theme="dim" class="transition-colors min-h-screen" x-data="AlpineData" x-bind:data-theme="theme">
+<body class="transition-colors min-h-screen" x-data="AlpineData" x-bind:data-theme="theme">
   <div x-data="AzureAuth">
     <div class="flex flex-col items-center justify-center min-h-screen absolute inset-0 z-10 bg-base-100" x-show="!isAuthenticated">
       <button x-show="!isAuthenticated" @click="signIn()" class="btn btn-soft btn-wide text-lg mb-4">
@@ -45,9 +45,9 @@
         <div class="navbar-end gap-2">
           <select class="select" x-model="theme">
             <option value="" disabled>Theme</option>
-            <!-- Dim is recommended for datk mode, and Nord for light mode -->
+            <!-- Dim is recommended for datk mode, and Silk for light mode -->
             <option value="dim" selected>Dim</option>
-            <option value="nord">Nord</option>
+            <option value="silk">Silk</option>
             <option value="abyss">Abyss</option>
             <option value="acid">Acid</option>
             <option value="aqua">Aqua</option>
@@ -73,9 +73,9 @@
             <option value="lofi">Lofi</option>
             <option value="luxury">Luxury</option>
             <option value="night">Night</option>
+            <option value="nord">Nord</option>
             <option value="pastel">Pastel</option>
             <option value="retro">Retro</option>
-            <option value="silk">Silk</option>
             <option value="sunset">Sunset</option>
             <option value="synthwave">Synthwave</option>
             <option value="valentine">Valentine</option>
@@ -131,6 +131,11 @@
             <!-- Only show error message if there is one -->
             <template x-if="errorMessage">
               <p x-show="errorMessage" class="text-red-500 text-base text-center w-full mt-8" x-text="errorMessage"></p>
+            </template>
+
+            <!-- Show success message if there is one -->
+            <template x-if="successMessage">
+              <p x-show="successMessage" class="text-green-500 text-base text-center w-full mt-8" x-text="successMessage"></p>
             </template>
 
             <!-- Page Indicator -->

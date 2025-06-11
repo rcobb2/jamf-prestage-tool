@@ -25,6 +25,7 @@ function createAlpineData() {
     theme: process.env.THEME || 'dim',
     searchData: '',
     errorMessage: '',
+    successMessage: '',
     updateToBuilding: '',
     dataList: [] as ComputerInfo[],
     dataListCopy: [] as ComputerInfo[],
@@ -100,6 +101,7 @@ function createAlpineData() {
         // Check if there are no changes to update
         if (JSON.stringify(current) === JSON.stringify(original) && this.updateToPrestage === 0) {
           this.errorMessage = 'No changes to update.';
+          this.successMessage = '';
           return;
         }
 
@@ -113,8 +115,10 @@ function createAlpineData() {
 
         // Reset the error message
         this.errorMessage = '';
+        this.successMessage = 'Data updated successfully.';
       } catch (error: any) {
         this.errorMessage = `An error occurred while sending data. Error: ${error.response}`;
+        this.successMessage = '';
       }
     },
 
@@ -123,6 +127,7 @@ function createAlpineData() {
         const current = this.dataList[this.dataIndex];
         if (!current) {
           this.errorMessage = 'No data to erase.';
+          this.successMessage = '';
           return;
         }
 
@@ -132,11 +137,13 @@ function createAlpineData() {
 
         await axios.delete(`/wipedevice/${current.computerId}`);
         this.errorMessage = '';
+        this.successMessage = 'Device wipe sent.';
         this.dataList.splice(this.dataIndex, 1);
         this.dataListCopy.splice(this.dataIndex, 1);
         this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
       } catch (error: any) {
         this.errorMessage = `An error occurred while erasing data. Error: ${error.response}`;
+        this.successMessage = '';
       }
     },
   }
