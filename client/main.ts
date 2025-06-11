@@ -12,7 +12,7 @@ type ComputerInfo = {
   computerId: number,
   name: string,
   room: string,
-  email: string | null,
+  email: string,
   building: string,
   username: string,
   serialNumber: string,
@@ -59,6 +59,7 @@ function createAlpineData() {
           this.errorMessage = `An error occurred while searching for data. Error: ${error.response}`;
         }
         this.dataList = [];
+        this.dataListCopy = [];
         this.dataIndex = 0;
       }
     },
