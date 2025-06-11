@@ -45,9 +45,9 @@
         <div class="navbar-end gap-2">
           <select class="select" x-model="theme" @change="changeTheme($event.target.value)">
             <option value="" disabled>Theme</option>
+            <!-- Dim is recommended for datk mode, and Nord for light mode -->
             <option value="dim" selected>Dim</option>
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
+            <option value="nord">Nord</option>
             <option value="abyss">Abyss</option>
             <option value="acid">Acid</option>
             <option value="aqua">Aqua</option>
@@ -61,6 +61,7 @@
             <option value="cmyk">CMYK</option>
             <option value="cupcake">Cupcake</option>
             <option value="cyberpunk">Cyberpunk</option>
+            <option value="dark">Dark</option>
             <option value="dracula">Dracula</option>
             <option value="emerald">Emerald</option>
             <option value="fantasy">Fantasy</option>
@@ -68,10 +69,10 @@
             <option value="garden">Garden</option>
             <option value="halloween">Halloween</option>
             <option value="lemonade">Lemonade</option>
+            <option value="light">Light</option>
             <option value="lofi">Lofi</option>
             <option value="luxury">Luxury</option>
             <option value="night">Night</option>
-            <option value="nord">Nord</option>
             <option value="pastel">Pastel</option>
             <option value="retro">Retro</option>
             <option value="silk">Silk</option>
@@ -128,25 +129,37 @@
           </fieldset>
 
           <!-- Pagination & Send -->
-          <nav class="join mt-2 grid grid-cols-3 gap-1 mb-20">
-            <button @click="prev" class="join-item btn btn-soft">
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
-              </svg>
-              Previous
-            </button>
-            <button @click="send" class="join-item btn btn-soft btn-primary flex-1">
-              Send
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
-              </svg>
-            </button>
-            <button @click="next" class="join-item btn btn-soft">
-              Next
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-              </svg>
-            </button>
+          <nav class="mt-2 grid gap-1 mb-20">
+            <!-- First row: 3 main buttons -->
+            <div class="join grid grid-cols-3 gap-1">
+              <button @click="prev" class="join-item btn btn-soft">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+                Previous
+              </button>
+              <button @click="send" class="join-item btn btn-soft btn-success">
+                Send
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
+                </svg>
+              </button>
+              <button @click="next" class="join-item btn btn-soft">
+                Next
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
+            <!-- Second row: Just change the grid-cols value, and add more :) -->
+            <div class="join grid grid-cols-1 gap-1">
+              <button @click="erase" class="join-item btn btn-soft btn-error">
+                Wipe Device
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 12h14m-7-7l7 7-7 7" />
+                </svg>
+              </button>
+            </div>
           </nav>
         </section>
       </main>
