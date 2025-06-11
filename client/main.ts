@@ -4,7 +4,6 @@ import AzureAuth from "./azure-auth.ts"
 import axios, { type AxiosResponse } from 'axios';
 
 const apiURL = `https://${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}/api`;
-console.log(`Server URL: ${apiURL}`);
 axios.defaults.baseURL = apiURL;
 
 type ComputerInfo = {
@@ -13,7 +12,7 @@ type ComputerInfo = {
   computerId: number,
   name: string,
   room: string,
-  email: string,
+  email: string | null,
   building: string,
   username: string,
   serialNumber: string,
@@ -26,13 +25,13 @@ function createAlpineData() {
     theme: process.env.THEME || 'dim',
     searchData: '',
     errorMessage: '',
+    updateToBuilding: '',
     dataList: [] as ComputerInfo[],
     dataListCopy: [] as ComputerInfo[],
     dataIndex: 0,
     totalPages: 0,
     currentPage: 0,
     updateToPrestage: 0,
-    updateToBuilding: 0,
 
     get currentData() {
       return this.dataList[this.dataIndex] || {};
@@ -73,12 +72,6 @@ function createAlpineData() {
 
         const original = this.dataListCopy[this.dataIndex];
 
-        // Update preload
-        // Only update if data has changed
-        if (JSON.stringify(current) !== JSON.stringify(original)) {
-          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current);
-        }
-
         // Optionally add to prestage, if updateToPrestage is set
         if (this.updateToPrestage !== 0) {
           await axios.post('/add-to-prestage', {
@@ -87,11 +80,38 @@ function createAlpineData() {
           });
         }
 
+        // Update preload
+        // Only update if data has changed
+        if (JSON.stringify(current) !== JSON.stringify(original)) {
+          for (const key in current) {
+            if (current[key as keyof ComputerInfo] === null) {
+              (current as any)[key] = '';
+            }
+          }
+
+          // If updateToBuilding is set, update the current.building
+          if (this.updateToBuilding !== '') {
+            current.building = this.updateToBuilding;
+          }
+
+          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current);
+        }
+
+        // Check if there are no changes to update
         if (JSON.stringify(current) === JSON.stringify(original) && this.updateToPrestage === 0) {
           this.errorMessage = 'No changes to update.';
           return;
         }
 
+        // Reset the updateToPrestage and updateToBuilding flags
+        this.updateToPrestage = 0;
+        this.updateToBuilding = '';
+
+        // Update the dataList and dataListCopy
+        this.dataList[this.dataIndex] = { ...current };
+        this.dataListCopy[this.dataIndex] = { ...current };
+
+        // Reset the error message
         this.errorMessage = '';
       } catch (error: any) {
         this.errorMessage = `An error occurred while sending data. Error: ${error.response.status}`;
