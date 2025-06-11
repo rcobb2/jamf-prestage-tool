@@ -92,7 +92,7 @@
 
           <!-- JSON Data Box -->
           <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4 w-full rounded-box shadow">
-            <legend class="fieldset-legend">JAMF Record</legend>
+            <legend class="fieldset-legend" x-text="currentData.assetTag === 'N/A' ? 'New JAMF Record' : 'JAMF Record'" />
 
             <!-- JSON key/value fields -->
             <template x-for="(value, name) in currentData" :key="name">
