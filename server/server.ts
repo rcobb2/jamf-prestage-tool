@@ -10,8 +10,8 @@ const tokenUrl = `${baseUrl}/api/oauth/token`;
 function setCORSHeaders(res: ResponseInit): ResponseInit {
   const headers = new Headers();
   headers.set("Access-Control-Allow-Origin", `https://${server_API_URL}`);
-  headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,OPTIONS");
-  headers.set("Access-Control-Allow-Headers", "*");
+  headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE");
+  headers.set("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
   return { ...res, headers };
 }
 
@@ -115,6 +115,8 @@ const server: Bun.Server = Bun.serve({
     "/api/wipedevice/:computerId": {
       async DELETE(req) {
         const { computerId } = req.params;
+        console.log(`Wiping device with ID: ${computerId}`);
+
         try {
           const token = await getToken();
           const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}/erase`;
