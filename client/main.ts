@@ -148,7 +148,8 @@ function fetchPrestages() {
 
     async init() {
       const response: AxiosResponse = await axios.get(`/prestages`);
-      this.prestages = await response.data;
+      response.data.sort((a: { displayName: string; }, b: { displayName: string; }) => a.displayName.localeCompare(b.displayName));
+      this.prestages = response.data;
     }
   }
 }
@@ -159,7 +160,8 @@ function fetchBuildings() {
 
     async init() {
       const response: AxiosResponse = await axios.get(`/buildings`);
-      this.buildings = await response.data;
+      response.data.sort((a: { name: string; }, b: { name: string; }) => a.name.localeCompare(b.name));
+      this.buildings = response.data;
     }
   }
 }
