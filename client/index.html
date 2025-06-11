@@ -134,10 +134,9 @@
             </section>
 
             <!-- Page Indicator -->
-            <!-- TODO: MAKE THIS SHOW UP, CURRENTLY, IT ISN'T VISIBLE -->
-            <template x-if="totalPages > 1">
-              <div class="flex justify-center items-center my-4">
-                <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`">TEMP TEXT</span>
+            <template x-if="dataList.length > 1">
+              <div class="flex justify-center items-center mt-8">
+              <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`"></span>
               </div>
             </template>
           </fieldset>
