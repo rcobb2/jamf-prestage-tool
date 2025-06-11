@@ -159,8 +159,42 @@ const server: Bun.Server = Bun.serve({
           let results: any[] = [];
 
           if (computers.length === 0) {
-            // ... (copy your device-enrollments fallback logic here)
-            // For simplicity it's omitted. You can adapt as above.
+            // Search device enrollments if no computers found
+            const enrollmentsRes = await axios.get<{ results: any[] }>(
+              `${baseUrl}/api/v1/device-enrollments?page=0&page-size=100`,
+              { headers: { accept: 'application/json', Authorization: `Bearer ${token}` } }
+            );
+
+            const enrollmentDevices = await Promise.all(
+              enrollmentsRes.data.results.map(async (instance) => {
+                const devicesRes = await axios.get<{ results: any[] }>(
+                  `${baseUrl}/api/v1/device-enrollments/${instance.id}/devices`,
+                  { headers: { accept: 'application/json', Authorization: `Bearer ${token}` } }
+                );
+                return devicesRes.data.results.filter(device => device.serialNumber === search);
+              })
+            );
+
+            const flatDevices = enrollmentDevices.flat();
+
+            results = await Promise.all(
+              flatDevices.map(async (device) => {
+                const preloadRes = await axios.get<{ results: any[] }>(
+                  `${baseUrl}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${device.serialNumber}`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const preload = preloadRes.data.results[0] || {};
+                return {
+                  assetTag: 'No asset tag yet',
+                  serialNumber: device.serialNumber,
+                  preloadId: preload.id,
+                  username: preload.username,
+                  email: preload.emailAddress,
+                  building: preload.building,
+                  room: preload.room,
+                };
+              })
+            );
           } else {
             results = await Promise.all(
               computers.map(async ({ id, serial_number }) => {
