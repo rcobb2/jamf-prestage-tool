@@ -112,9 +112,9 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/api/wipedevice": {
-      async POST(req) {
-        const { computerId } = await req.json() as { computerId: number };
+    "/api/wipedevice/:computerId": {
+      async DELETE(req) {
+        const { computerId } = req.params;
         try {
           const token = await getToken();
           const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}/erase`;
@@ -164,7 +164,7 @@ const server: Bun.Server = Bun.serve({
                   computerId: compRes.data.id,
                   name: general.name || 'N/A',
                   assetTag: general.assetTag || 'N/A',
-                  enrollmentMethod: general.enrollmentMethod?.objectName || 'No Prestage Found.',
+                  enrollmentMethod: general.enrollmentMethod?.objectName || 'No enrollment method found',
                   serialNumber: serial_number,
                   currentPrestage: prestage.displayName,
                   preloadId: preload.id,
