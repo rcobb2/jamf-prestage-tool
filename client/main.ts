@@ -32,6 +32,7 @@ function createAlpineData() {
     totalPages: 0,
     currentPage: 0,
     updateToPrestage: 0,
+    updateToBuilding: 0,
 
     get currentData() {
       return this.dataList[this.dataIndex] || {};
@@ -46,10 +47,7 @@ function createAlpineData() {
     async search() {
       try {
         const response = await axios.get(`/data/${this.searchData}`);
-        // // this.selectedPrestage = response.data[0].currentprestage || '';
 
-        // const filteredData = response.data.map(({ currentPrestage, ...rest }: any) => rest);
-        // this.dataList = filteredData;
         this.dataList = response.data;
         this.dataListCopy = JSON.parse(JSON.stringify(this.dataList));
         this.dataIndex = 0;
@@ -58,7 +56,7 @@ function createAlpineData() {
         if (error.response && error.response.status === 404) {
           this.errorMessage = `No computer found for: ${this.searchData}`;
         } else {
-          this.errorMessage = `An error occurred while searching for data. Error: ${error.message}`;
+          this.errorMessage = `An error occurred while searching for data. Error: ${error.response.status}`;
         }
         this.dataList = [];
         this.dataIndex = 0;
@@ -96,7 +94,7 @@ function createAlpineData() {
 
         this.errorMessage = '';
       } catch (error: any) {
-        this.errorMessage = `An error occurred while sending data. Error: ${error.message}`;
+        this.errorMessage = `An error occurred while sending data. Error: ${error.response.status}`;
       }
     },
 
@@ -118,7 +116,7 @@ function createAlpineData() {
         this.dataListCopy.splice(this.dataIndex, 1);
         this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
       } catch (error: any) {
-        this.errorMessage = `An error occurred while erasing data. Error: ${error.message}`;
+        this.errorMessage = `An error occurred while erasing data. Error: ${error.response.status}`;
       }
     },
   }
@@ -127,7 +125,6 @@ function createAlpineData() {
 function fetchPrestages() {
   return {
     prestages: [],
-    selectedPrestage: '',
 
     async init() {
       const response: AxiosResponse = await axios.get(`/prestages`);
@@ -136,10 +133,22 @@ function fetchPrestages() {
   }
 }
 
+function fetchBuildings() {
+  return {
+    buildings: [],
+
+    async init() {
+      const response: AxiosResponse = await axios.get(`/buildings`);
+      this.buildings = await response.data;
+    }
+  }
+}
+
 // @ts-ignore
 window.Alpine = Alpine;
 
 Alpine.data('AzureAuth', AzureAuth);
+Alpine.data('FetchBuildings', fetchBuildings);
 Alpine.data('FetchPrestages', fetchPrestages);
 Alpine.data('AlpineData', createAlpineData);
 

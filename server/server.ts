@@ -112,6 +112,21 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
+    "/api/buildings": {
+      async GET() {
+        try {
+          const token = await getToken();
+          const apiUrl = `${baseUrl}/api/v1/buildings?page=0&page-size=100&sort=id%3Aasc`;
+          const response = await axios.get<{ results: any[] }>(apiUrl, {
+            headers: { accept: 'application/json', Authorization: `Bearer ${token}` }
+          });
+          return new Response(JSON.stringify(response.data.results), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+        } catch {
+          return new Response('Failed to fetch buildings', setCORSHeaders({ status: 500 }));
+        }
+      }
+    },
+
     "/api/wipedevice/:computerId": {
       async DELETE(req) {
         const { computerId } = req.params;
@@ -194,30 +209,17 @@ const server: Bun.Server = Bun.serve({
   async fetch(req) {
     const url = new URL(req.url);
     const { method } = req;
-    let res: Response;
 
     // CORS preflight
     if (method === "OPTIONS") {
       return new Response(null, setCORSHeaders({ status: 204 }));
     }
 
-    // /api/buildings
-    if (url.pathname === "/api/buildings" && method === "GET") {
-      try {
-        const token = await getToken();
-        const apiUrl = `${baseUrl}/api/v1/buildings?page=0&page-size=100&sort=id%3Aasc`;
-        const response = await axios.get<{ results: any[] }>(apiUrl, {
-          headers: { accept: 'application/json', Authorization: `Bearer ${token}` }
-        });
-        return new Response(JSON.stringify(response.data.results), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
-      } catch {
-        return new Response('Failed to fetch buildings', setCORSHeaders({ status: 500 }));
-      }
-    }
-
     // /api/remove-from-prestage
     if (url.pathname === "/api/remove-from-prestage" && method === "POST") {
       const body = await req.json() as JAMFResponse;
+      console.log(`Removing device with serial number: ${body.serialNumber} from prestage: ${body.currentPrestage}`);
+
       const { serialNumber, currentPrestage } = body;
       try {
         const prestages = await getPrestages();
@@ -241,17 +243,20 @@ const server: Bun.Server = Bun.serve({
     if (url.pathname === "/api/add-to-prestage" && method === "POST") {
       const body = await req.json() as JAMFResponse;
       const { serialNumber, prestageId } = body;
+      console.log(`Adding device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
+
       try {
         const prestages = await getPrestages();
         const prestage = prestages.find(p => p.id === prestageId);
         if (!prestage) {
           return new Response('Prestage not found', setCORSHeaders({ status: 404 }));
         }
+
         const token = await getToken();
         const response = await axios.post(
           `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope`,
           { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-          { headers: { accept: 'application/json', 'content-type': 'application/json', Authorization: `Bearer ${token}` } }
+          { headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
         );
         return new Response(JSON.stringify(response.data), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
       } catch (error: any) {
@@ -265,8 +270,10 @@ const server: Bun.Server = Bun.serve({
 
     // /api/update-preload/:preloadId/:computerId
     if (url.pathname.startsWith("/api/update-preload/") && method === "PUT") {
-      const [, , preloadId, computerId] = url.pathname.split("/");
+      const [, , , preloadId, computerId] = url.pathname.split("/");
       const body = await req.json() as JAMFResponse;
+      console.log(`Updating preload with ID: ${preloadId} for computer ID: ${computerId}`);
+
       const { serialNumber, username, emailAddress, building, room, assetTag, buildingId } = body;
       const preloadData = {
         deviceType: 'Computer',

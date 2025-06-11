@@ -43,7 +43,7 @@
           </div>
         </div>
         <div class="navbar-end gap-2">
-          <select class="select" x-model="theme" @change="changeTheme($event.target.value)">
+          <select class="select" x-model="theme">
             <option value="" disabled>Theme</option>
             <!-- Dim is recommended for datk mode, and Nord for light mode -->
             <option value="dim" selected>Dim</option>
@@ -92,20 +92,21 @@
 
           <!-- JSON Data Box -->
           <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4 w-full rounded-box shadow">
-            <legend class="fieldset-legend">Data</legend>
+            <legend class="fieldset-legend">JAMF Record</legend>
 
             <!-- JSON key/value fields -->
             <template x-for="(value, name) in currentData" :key="name">
               <span class="flex justify-between items-center w-full">
                 <label x-text="name" class="label text-base"></label>
-                <input type="text" class="input" @input="currentData[name] = $event.target.value" :value="value" :disabled="['computerId', 'enrollmentMethod', 'serialNumber', 'preloadId', 'name', 'currentPrestage'].includes(name)" />
+                <input type="text" class="input" @input="currentData[name] = $event.target.value" :value="value" :disabled="['computerId', 'enrollmentMethod', 'serialNumber', 'preloadId', 'name', 'currentPrestage', 'building'].includes(name)" />
               </span>
             </template>
 
             <!-- Page Indicator -->
+             <!-- TODO: MAKE THIS SHOW UP, CURRENTLY, IT ISN'T VISIBLE -->
             <template x-if="totalPages > 1">
               <div class="flex justify-center items-center my-4">
-                <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`"></span>
+                <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`">TEMP TEXT</span>
               </div>
             </template>
 
@@ -114,8 +115,21 @@
               <p x-show="errorMessage" class="text-red-500 text-center w-full" x-text="errorMessage"></p>
             </template>
 
-            <!-- Prestage Dropdown -->
+            <!-- Building Dropdown -->
             <section class="mt-4">
+              <span class="flex justify-between items-center w-full" x-data="FetchBuildings">
+                <label class="label text-base">Building</label>
+                <select class="select" name="buildingDropdown" @change="updateToBuilding = $event.target.value">
+                  <option value="" selected disabled>Select Building</option>
+                  <template x-for="building in buildings" :key="building.id">
+                    <option :value="building.id" x-text="building.name"></option>
+                  </template>
+                </select>
+              </span>
+            </section>
+
+            <!-- Prestage Dropdown -->
+            <section>
               <span class="flex justify-between items-center w-full" x-data="FetchPrestages">
                 <label class="label text-base">Prestage</label>
                 <select class="select" name="prestageDropdown" @change="updateToPrestage = $event.target.value">
