@@ -23,6 +23,7 @@ type ComputerInfo = {
 
 function createAlpineData() {
   return {
+    theme: process.env.THEME || 'dim',
     searchData: '',
     errorMessage: '',
     dataList: [] as ComputerInfo[],
@@ -50,7 +51,7 @@ function createAlpineData() {
         // const filteredData = response.data.map(({ currentPrestage, ...rest }: any) => rest);
         // this.dataList = filteredData;
         this.dataList = response.data;
-        this.dataListCopy = response.data;
+        this.dataListCopy = JSON.parse(JSON.stringify(this.dataList));
         this.dataIndex = 0;
         this.errorMessage = '';
       } catch (error: any) {
@@ -72,9 +73,10 @@ function createAlpineData() {
           return;
         }
 
+        const original = this.dataListCopy[this.dataIndex];
+
         // Update preload
         // Only update if data has changed
-        const original = this.dataListCopy[this.dataIndex];
         if (JSON.stringify(current) !== JSON.stringify(original)) {
           await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current);
         }
