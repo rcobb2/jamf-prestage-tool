@@ -102,11 +102,6 @@
               </span>
             </template>
 
-            <!-- Only show error message if there is one -->
-            <template x-if="errorMessage">
-              <p x-show="errorMessage" class="text-red-500 text-center w-full" x-text="errorMessage"></p>
-            </template>
-
             <!-- Building Dropdown -->
             <section class="mt-4">
               <span class="flex justify-between items-center w-full" x-data="FetchBuildings">
@@ -133,10 +128,15 @@
               </span>
             </section>
 
+            <!-- Only show error message if there is one -->
+            <template x-if="errorMessage">
+              <p x-show="errorMessage" class="text-red-500 text-center w-full" x-text="errorMessage"></p>
+            </template>
+
             <!-- Page Indicator -->
             <template x-if="dataList.length > 1">
               <div class="flex justify-center items-center mt-8">
-              <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`"></span>
+                <span class="text-base-content font-semibold" x-text="`Page ${dataIndex + 1} of ${dataList.length}`"></span>
               </div>
             </template>
           </fieldset>
@@ -164,6 +164,7 @@
                 </svg>
               </button>
             </div>
+
             <!-- Second row: Just change the grid-cols value, and add more :) -->
             <div class="join grid grid-cols-1 gap-1">
               <button @click="erase" class="join-item btn btn-soft btn-error">
