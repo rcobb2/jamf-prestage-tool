@@ -58,7 +58,7 @@ function createAlpineData() {
         if (error.response && error.response.status === 404) {
           this.errorMessage = `No computer found for: ${this.searchData}`;
         } else {
-          this.errorMessage = 'An error occurred while searching.';
+          this.errorMessage = `An error occurred while searching for data. Error: ${error.message}`;
         }
         this.dataList = [];
         this.dataIndex = 0;
@@ -98,7 +98,29 @@ function createAlpineData() {
       } catch (error: any) {
         this.errorMessage = `An error occurred while sending data. Error: ${error.message}`;
       }
-    }
+    },
+
+    async erase() {
+      try {
+        const current = this.dataList[this.dataIndex];
+        if (!current) {
+          this.errorMessage = 'No data to erase.';
+          return;
+        }
+
+        if (!window.confirm('Are you sure you want to wipe this device? This action cannot be undone.')) {
+          return;
+        }
+
+        await axios.delete(`/wipedevice/${current.computerId}`);
+        this.errorMessage = '';
+        this.dataList.splice(this.dataIndex, 1);
+        this.dataListCopy.splice(this.dataIndex, 1);
+        this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
+      } catch (error: any) {
+        this.errorMessage = `An error occurred while erasing data. Error: ${error.message}`;
+      }
+    },
   }
 }
 
