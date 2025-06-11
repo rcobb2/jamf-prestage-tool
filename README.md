@@ -5,11 +5,15 @@ You will need to set an a .env file for these secrets and settings - place these
 AZURE_CLIENT_ID=                                          # Entra Application Registration Client ID
 AZURE_AUTHORITY=https://login.microsoftonline.com/        # Add your tenant ID after the slash or https://login.microsoftonline.com/common
 
-# Backend Configuration
-CLIENT_HOSTNAME=                                      # Hostname you want for frontend
-CLIENT_PORT=                                          # Port you want for frontend
-SERVER_API_HOSTNAME=                                      # Hostname you want for the backend
-SERVER_API_PORT=                                          # Port you want for the backend
+
+# Client Configuration
+CLIENT_HOSTNAME=                                          # Hostname you want for the client
+CLIENT_PORT=                                              # Port you want for the client
+THEME=                                                    # Default theme you want
+
+# Server Configuration
+SERVER_API_HOSTNAME=                                      # Hostname you want for the server
+SERVER_API_PORT=                                          # Port you want for the server
 
 # JAMF Instance and Credentials
 JAMF_INSTANCE=                                            # Base JAMF URL e.g. https://constoso.jamfcloud.com
