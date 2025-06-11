@@ -184,8 +184,12 @@ const server: Bun.Server = Bun.serve({
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
                 const preload = preloadRes.data.results[0] || {};
+                // If preload is empty, return early with 404
+                if (!preload || Object.keys(preload).length === 0) {
+                  return new Response('No computers found', setCORSHeaders({ status: 404 }));
+                }
                 return {
-                  assetTag: 'No asset tag yet',
+                  assetTag: 'N/A',
                   serialNumber: device.serialNumber,
                   preloadId: preload.id,
                   username: preload.username,
@@ -228,7 +232,7 @@ const server: Bun.Server = Bun.serve({
             );
           }
           if (results.length === 0) {
-            return new Response('No computers found', setCORSHeaders({ status: 404 }));
+            return new Response('No computer found', setCORSHeaders({ status: 404 }));
           } else {
             return new Response(JSON.stringify(results), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
           }
