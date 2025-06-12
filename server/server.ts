@@ -6,14 +6,16 @@ const clientSecret = process.env.JAMF_CLIENT_SECRET as string;
 const server_API_URL = process.env.SERVER_API_HOSTNAME as string;
 const tokenUrl = `${baseUrl}/api/oauth/token`;
 
-// CORS helper
-function setCORSHeaders(res: ResponseInit): ResponseInit {
-  const headers = new Headers();
-  headers.set("Access-Control-Allow-Origin", `https://${server_API_URL}`);
-  headers.set("Access-Control-Allow-Methods", "GET,POST,PUT,PATCH,DELETE");
-  headers.set("Access-Control-Allow-Headers", "Content-Type, Accept, Authorization");
-  return { ...res, headers };
-}
+// CORS headers
+// axios.defaults.headers.common["Access-Control-Allow-Origin"] = `https://${server_API_URL}`;
+axios.defaults.headers.common["Access-Control-Allow-Origin"] = `*`;
+axios.defaults.headers.common["Access-Control-Allow-Methods"] = "*";
+// axios.defaults.headers.common["Access-Control-Allow-Headers"] = "Content-Type, Accept, Authorization";
+
+// Set default headers for axios
+axios.defaults.headers.common["Accept"] = "application/json";
+axios.defaults.headers.common["Content-Type"] = "application/json";
+
 
 // Get the access token using client credentials
 async function getToken(): Promise<string> {
@@ -77,7 +79,7 @@ async function getPrestageAssignments(serialNumber: string): Promise<{ serialNum
   const token = await getToken();
   const apiUrl = `${baseUrl}/api/v2/computer-prestages/scope`;
   const response = await axios.get<{ serialsByPrestageId: Record<string, number> }>(apiUrl, {
-    headers: { Authorization: `Bearer ${token}`, accept: 'application/json' }
+    headers: { Authorization: `Bearer ${token}` }
   });
   const assignments = response.data.serialsByPrestageId;
   const prestages = await getPrestages();
@@ -105,9 +107,9 @@ const server: Bun.Server = Bun.serve({
       async GET() {
         try {
           const prestages = await getPrestages();
-          return new Response(JSON.stringify(prestages), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+          return new Response(JSON.stringify(prestages), { status: 200 });
         } catch {
-          return new Response('Error fetching prestages', setCORSHeaders({ status: 500 }));
+          return new Response('Error fetching prestages', { status: 500 });
         }
       }
     },
@@ -118,11 +120,11 @@ const server: Bun.Server = Bun.serve({
           const token = await getToken();
           const apiUrl = `${baseUrl}/api/v1/buildings?page=0&page-size=100&sort=id%3Aasc`;
           const response = await axios.get<{ results: any[] }>(apiUrl, {
-            headers: { accept: 'application/json', Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` }
           });
-          return new Response(JSON.stringify(response.data.results), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+          return new Response(JSON.stringify(response.data.results), { status: 200 });
         } catch {
-          return new Response('Failed to fetch buildings', setCORSHeaders({ status: 500 }));
+          return new Response('Failed to fetch buildings', { status: 500 });
         }
       }
     },
@@ -135,17 +137,15 @@ const server: Bun.Server = Bun.serve({
         try {
           const token = await getToken();
           const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}/erase`;
-          const response = await axios.post(apiUrl, {
-            pin: "123456"
-          }, {
-            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-          });
+          const response = await axios.post(apiUrl,
+            { pin: "123456" },
+            { headers: { Authorization: `Bearer ${token}` } });
 
-          return new Response(JSON.stringify(response.data), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+          return new Response(JSON.stringify(response.data), { status: 200 });
         } catch (error: any) {
           const status = error?.response?.status;
           const message = error?.message || 'Error wiping device';
-          return new Response(message, setCORSHeaders({ status: status }));
+          return new Response(message, { status: status });
         }
       }
     },
@@ -162,14 +162,14 @@ const server: Bun.Server = Bun.serve({
             // Search device enrollments if no computers found
             const enrollmentsRes = await axios.get<{ results: any[] }>(
               `${baseUrl}/api/v1/device-enrollments?page=0&page-size=100`,
-              { headers: { accept: 'application/json', Authorization: `Bearer ${token}` } }
+              { headers: { Authorization: `Bearer ${token}` } }
             );
 
             const enrollmentDevices = await Promise.all(
               enrollmentsRes.data.results.map(async (instance) => {
                 const devicesRes = await axios.get<{ results: any[] }>(
                   `${baseUrl}/api/v1/device-enrollments/${instance.id}/devices`,
-                  { headers: { accept: 'application/json', Authorization: `Bearer ${token}` } }
+                  { headers: { Authorization: `Bearer ${token}` } }
                 );
                 return devicesRes.data.results.filter(device => device.serialNumber === search);
               })
@@ -186,7 +186,7 @@ const server: Bun.Server = Bun.serve({
                 const preload = preloadRes.data.results[0] || {};
                 // If preload is empty, return early with 404
                 if (!preload || Object.keys(preload).length === 0) {
-                  return new Response('No computers found', setCORSHeaders({ status: 404 }));
+                  return new Response('No computers found', { status: 404 });
                 }
                 return {
                   assetTag: 'N/A',
@@ -232,12 +232,12 @@ const server: Bun.Server = Bun.serve({
             );
           }
           if (results.length === 0) {
-            return new Response('No computer found', setCORSHeaders({ status: 404 }));
+            return new Response('No computer found', { status: 404 });
           } else {
-            return new Response(JSON.stringify(results), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+            return new Response(JSON.stringify(results), { status: 200 });
           }
         } catch {
-          return new Response('Error fetching data', setCORSHeaders({ status: 500 }));
+          return new Response('Error fetching data', { status: 500 });
         }
       }
     }
@@ -249,9 +249,12 @@ const server: Bun.Server = Bun.serve({
     const { method } = req;
 
     // CORS preflight
-    if (method === "OPTIONS") {
-      return new Response(null, setCORSHeaders({ status: 204 }));
+    // Handle CORS preflight requests
+    if (req.method === 'OPTIONS') {
+      const res = new Response('Departed');
+      return res;
     }
+
 
     // /api/remove-from-prestage
     if (url.pathname === "/api/remove-from-prestage" && method === "POST") {
@@ -263,17 +266,17 @@ const server: Bun.Server = Bun.serve({
         const prestages = await getPrestages();
         const prestage = prestages.find(p => p.displayName === currentPrestage);
         if (!prestage) {
-          return new Response('Prestage not found', setCORSHeaders({ status: 404 }));
+          return new Response('Prestage not found', { status: 404 });
         }
         const token = await getToken();
         const response = await axios.post(
           `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
           { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-          { headers: { accept: 'application/json', 'content-type': 'application/json', Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        return new Response(JSON.stringify(response.data), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+        return new Response(JSON.stringify(response.data), { status: 200 });
       } catch {
-        return new Response('Error removing device from prestage', setCORSHeaders({ status: 500 }));
+        return new Response('Error removing device from prestage', { status: 500 });
       }
     }
 
@@ -287,22 +290,22 @@ const server: Bun.Server = Bun.serve({
         const prestages = await getPrestages();
         const prestage = prestages.find(p => p.id === prestageId);
         if (!prestage) {
-          return new Response('Prestage not found', setCORSHeaders({ status: 404 }));
+          return new Response('Prestage not found', { status: 404 });
         }
 
         const token = await getToken();
         const response = await axios.post(
           `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope`,
           { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-          { headers: { Accept: 'application/json', 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } }
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        return new Response(JSON.stringify(response.data), setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+        return new Response(JSON.stringify(response.data), { status: 200 });
       } catch (error: any) {
         const status = error?.response?.status;
         if (status === 400) {
-          return new Response('Please remove from current prestage before adding', setCORSHeaders({ status: 400 }));
+          return new Response('Please remove from current prestage before adding', { status: 400 });
         }
-        return new Response('Error adding device to prestage', setCORSHeaders({ status: 500 }));
+        return new Response('Error adding device to prestage', { status: 500 });
       }
     }
 
@@ -334,25 +337,23 @@ const server: Bun.Server = Bun.serve({
             : `${baseUrl}/api/v2/inventory-preload/records`;
         const preloadMethod = preloadId && preloadId !== 'null' ? 'put' : 'post';
         const preloadResponse = await (axios as any)[preloadMethod](preloadApiUrl, preloadData, {
-          headers: { accept: 'application/json', 'content-type': 'application/json', Authorization: `Bearer ${token}` }
+          headers: { Authorization: `Bearer ${token}` }
         });
         try {
           const computerApiUrl = `${baseUrl}/api/v1/computers-inventory-detail/${computerId}`;
           const computerResponse = await axios.patch(computerApiUrl, computerData, {
-            headers: { accept: 'application/json', 'content-type': 'application/json', Authorization: `Bearer ${token}` }
+            headers: { Authorization: `Bearer ${token}` }
           });
-          return new Response(JSON.stringify({ preload: preloadResponse.data, computer: computerResponse.data }),
-            setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+          return new Response(JSON.stringify({ preload: preloadResponse.data, computer: computerResponse.data }), { status: 200 });
         } catch {
-          return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }),
-            setCORSHeaders({ status: 200, headers: { "Content-Type": "application/json" } }));
+          return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }), { status: 200 });
         }
       } catch (err: any) {
         const { response } = err;
         if (response) {
-          return new Response(response.data, setCORSHeaders({ status: response.status }));
+          return new Response(response.data, { status: response.status });
         } else {
-          return new Response('Error updating preload/computer information', setCORSHeaders({ status: 500 }));
+          return new Response('Error updating preload/computer information', { status: 500 });
         }
       }
     }
