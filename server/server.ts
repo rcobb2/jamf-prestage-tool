@@ -7,10 +7,9 @@ const server_API_URL = process.env.SERVER_API_HOSTNAME as string;
 const tokenUrl = `${baseUrl}/api/oauth/token`;
 
 // CORS headers
-// axios.defaults.headers.common["Access-Control-Allow-Origin"] = `https://${server_API_URL}`;
-axios.defaults.headers.common["Access-Control-Allow-Origin"] = `*`;
-axios.defaults.headers.common["Access-Control-Allow-Methods"] = "*";
-// axios.defaults.headers.common["Access-Control-Allow-Headers"] = "Content-Type, Accept, Authorization";
+axios.defaults.headers.common["Access-Control-Allow-Origin"] = `https://${server_API_URL}`;
+axios.defaults.headers.common["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+axios.defaults.headers.common["Access-Control-Allow-Headers"] = "Content-Type, Accept, Authorization";
 
 // Set default headers for axios
 axios.defaults.headers.common["Accept"] = "application/json";
