@@ -1,9 +1,11 @@
 await Bun.build({
-  entrypoints: ['./main.ts'],
+  entrypoints: [ './main.ts' ],
   outdir: './client/',
   env: 'inline',
   target: 'browser',
   format: 'esm',
+  sourcemap: 'none',
+  splitting: false,
   minify: true,
 });
 
