@@ -1,7 +1,7 @@
 /// <reference lib="dom" />
 import Alpine from 'alpinejs';
-import AzureAuth from "./azure-auth.ts"
 import axios, { type AxiosResponse } from 'axios';
+import AzureAuth from "./azure-auth.ts";
 
 const apiURL = `https://${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}/api`;
 axios.defaults.baseURL = apiURL;
