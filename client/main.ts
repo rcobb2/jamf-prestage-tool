@@ -60,7 +60,7 @@ function createAlpineData() {
         if (error.response && error.response.status === 404) {
           this.errorMessage = `No computer found for: ${this.searchData}`;
         } else {
-          this.errorMessage = `An error occurred while searching for data. Error ${error.response?.status ?? 'unknown'}`;
+          this.errorMessage = `An error occurred while searching for data. Error: ${error.response?.status ?? 'unknown'}`;
         }
         this.dataList = [];
         this.dataListCopy = [];
@@ -119,7 +119,7 @@ function createAlpineData() {
         this.errorMessage = '';
         this.successMessage = 'Data updated successfully.';
       } catch (error: any) {
-        this.errorMessage = `An error occurred while sending data. Error ${error.response?.status ?? 'unknown'}`;
+        this.errorMessage = `An error occurred while sending data. Error: ${error.response?.status ?? 'unknown'}`;
         this.successMessage = '';
       }
     },
@@ -144,7 +144,7 @@ function createAlpineData() {
         this.dataListCopy.splice(this.dataIndex, 1);
         this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
       } catch (error: any) {
-        this.errorMessage = `An error occurred while erasing data. Error ${error.response?.status ?? 'unknown'}`;
+        this.errorMessage = `An error occurred while erasing data. Error: ${error.response?.status ?? 'unknown'}`;
         this.successMessage = '';
       }
     },
@@ -169,7 +169,7 @@ function createAlpineData() {
         this.dataListCopy.splice(this.dataIndex, 1);
         this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
       } catch (error: any) {
-        this.errorMessage = `An error occurred while retiring data. Error ${error.response?.status ?? 'unknown'}`;
+        this.errorMessage = `An error occurred while retiring data. Error: ${error.response?.status ?? 'unknown'}`;
         this.successMessage = '';
       }
     },
