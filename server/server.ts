@@ -161,6 +161,42 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
+    "/api/retiredevice/:computerId": {
+      async DELETE(req) {
+        const { computerId } = req.params;
+        console.log(`Retiring device with ID: ${computerId}`);
+
+        return new Response('Not implemented yet', { ...CORS_HEADERS, status: 501 });
+        // try {
+        //   const token = await getToken();
+        //   const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}`;
+        //   const response = await axios.delete(apiUrl, {
+        //     headers: { Authorization: `Bearer ${token}` }
+        //   });
+
+        //   if (response.status !== 204) {
+        //     return new Response('Failed to retire device on JAMF', { ...CORS_HEADERS, status: 500 });
+        //   }
+
+        //   // Send an API request to GLPI (example, haven't implemented GLPI API yet)
+        //   try {
+        //     await axios.post(
+        //       "https://glpi.example.com/api/retire-device",
+        //       { computerId },
+        //       { headers: { "Authorization": "Bearer YOUR_GLPI_TOKEN" } }
+        //     );
+        //   } catch (glpiError) {
+        //     console.error("Failed to notify GLPI:", glpiError);
+        //     return new Response('Device retired on JAMF, but failed to notify GLPI', { ...CORS_HEADERS, status: 500 });
+        //   }
+        // } catch (error: any) {
+        //   const status = error?.response?.status;
+        //   const message = error?.message || 'Error retiring device';
+        //   return new Response(message, { status: status });
+        // }
+      }
+    },
+
     "/api/data/:search": {
       async GET(req) {
         const { search } = req.params;

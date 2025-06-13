@@ -171,11 +171,17 @@
             </div>
 
             <!-- Second row: Just change the grid-cols value, and add more :) -->
-            <div class="join grid grid-cols-1 gap-1">
+            <div class="join grid grid-cols-2 gap-1">
               <button @click="erase" class="join-item btn btn-soft btn-error">
                 Wipe Device
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+              <button @click="retire" class="join-item btn btn-soft btn-warning">
+                Retire
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2a4 4 0 018 0v2M9 17H7a2 2 0 01-2-2v-5a2 2 0 012-2h10a2 2 0 012 2v5a2 2 0 01-2 2h-2M9 17v1a3 3 0 006 0v-1" />
                 </svg>
               </button>
             </div>

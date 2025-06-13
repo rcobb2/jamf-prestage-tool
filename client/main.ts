@@ -148,6 +148,31 @@ function createAlpineData() {
         this.successMessage = '';
       }
     },
+
+    async retire() {
+      try {
+        const current = this.dataList[this.dataIndex];
+        if (!current) {
+          this.errorMessage = 'No data to retire.';
+          this.successMessage = '';
+          return;
+        }
+
+        if (!window.confirm('Are you sure you want to retire this device? This action cannot be undone.')) {
+          return;
+        }
+
+        await axios.delete(`/retiredevice/${current.computerId}`);
+        this.errorMessage = '';
+        this.successMessage = 'Device retired successfully.';
+        this.dataList.splice(this.dataIndex, 1);
+        this.dataListCopy.splice(this.dataIndex, 1);
+        this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
+      } catch (error: any) {
+        this.errorMessage = `An error occurred while retiring data. Error: ${error.response}`;
+        this.successMessage = '';
+      }
+    },
   }
 }
 
