@@ -1,4 +1,5 @@
 import axios from "axios";
+import notFound from "/app/404.html";
 
 const baseUrl = process.env.JAMF_INSTANCE as string;
 const { JAMF_CLIENT_ID, JAMF_CLIENT_SECRET, SERVER_API_HOSTNAME, SERVER_API_PORT, CLIENT_HOSTNAME } = process.env;
@@ -99,12 +100,9 @@ async function getPrestageAssignments(serialNumber: string): Promise<{ serialNum
 
 // Main handler
 const server: Bun.Server = Bun.serve({
-  development: {
-    console: true,
-    hmr: false,
-  },
-  hostname: SERVER_API_HOSTNAME,
-  port: SERVER_API_PORT,
+  development: false,
+  hostname: SERVER_API_HOSTNAME || "localhost",
+  port: SERVER_API_PORT || 3001,
   tls: {
     key: Bun.file("server.key"),
     cert: Bun.file("server.cert"),
@@ -310,10 +308,13 @@ const server: Bun.Server = Bun.serve({
 
     "/api/update-preload/:preloadId/:computerId": {
       async PUT(req) {
-        const { preloadId, computerId } = req.params;
-        console.log(`Updating preload with ID: ${preloadId} for computer ID: ${computerId}`);
-
         const body = await req.json() as JAMFResponse;
+        const { preloadId, computerId } = req.params;
+
+        console.log(`Updating preload with ID: ${preloadId} for computer ID: ${computerId}`);
+        console.log(`Request body: ${JSON.stringify(body)}`);
+
+
         const { serialNumber, username, emailAddress, building, room, assetTag, buildingId } = body;
         const preloadData = {
           deviceType: 'Computer',
@@ -356,21 +357,13 @@ const server: Bun.Server = Bun.serve({
           }
         }
       }
-    }
+    },
+
+    "/*": notFound,
   },
 
-
-  async fetch() {
-    // Not found
-    return new Response("404 Not Found", { ...CORS_HEADERS, status: 404 });
-  },
   error() {
-    return new Response("Error: Internal Server Error", {
-      ...CORS_HEADERS,
-      status: 500,
-      statusText: "Internal Server Error",
-      headers: { "Content-Type": "text/plain" },
-    });
+    return new Response("Error: Internal Server Error", { ...CORS_HEADERS, status: 500 });
   },
 });
 
