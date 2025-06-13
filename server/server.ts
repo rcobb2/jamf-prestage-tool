@@ -108,12 +108,6 @@ const server: Bun.Server = Bun.serve({
     cert: Bun.file("server.cert"),
   },
   routes: {
-    "/api/*": {
-      async OPTIONS() {
-        return new Response('CORS preflight', CORS_HEADERS);
-      }
-    },
-
     "/api/prestages": {
       async GET() {
         try {
@@ -121,6 +115,57 @@ const server: Bun.Server = Bun.serve({
           return new Response(JSON.stringify(prestages), { ...CORS_HEADERS, status: 200 });
         } catch {
           return new Response('Error fetching prestages', { ...CORS_HEADERS, status: 500 });
+        }
+      }
+    },
+
+    "/api/change-prestage/:prestageId/:serialNumber": {
+      async POST(req) {
+        const { serialNumber, prestageId } = req.params;
+        console.log(`Adding device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
+
+        try {
+          const prestages = await getPrestages();
+          const prestage = prestages.find(p => p.id === Number(prestageId));
+          if (!prestage) {
+            return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
+          }
+
+          const token = await getToken();
+          const response = await axios.post(
+            `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope`,
+            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
+        } catch (error: any) {
+          const status = error?.response?.status;
+          if (status === 400) {
+            return new Response('Please remove from current prestage before adding', { ...CORS_HEADERS, status: 400 });
+          }
+          return new Response('Error adding device to prestage', { ...CORS_HEADERS, status: 500 });
+        }
+      },
+
+      async DELETE(req) {
+        const { prestageId, serialNumber } = req.params;
+        console.log(`Removing device with serial number: ${serialNumber} from prestage: ${prestageId}`);
+
+        try {
+          const prestages = await getPrestages();
+          const prestage = prestages.find(p => p.displayName === prestageId);
+          if (!prestage) {
+            return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
+          }
+          const token = await getToken();
+          const response = await axios.post(
+            `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
+            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
+        } catch {
+          return new Response('Error removing device from prestage', { ...CORS_HEADERS, status: 500 });
         }
       }
     },
@@ -137,63 +182,6 @@ const server: Bun.Server = Bun.serve({
         } catch {
           return new Response('Failed to fetch buildings', { ...CORS_HEADERS, status: 500 });
         }
-      }
-    },
-
-    "/api/wipedevice/:computerId": {
-      async DELETE(req) {
-        const { computerId } = req.params;
-        console.log(`Wiping device with ID: ${computerId}`);
-
-        try {
-          const token = await getToken();
-          const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}/erase`;
-          const response = await axios.post(apiUrl,
-            { pin: "123456" },
-            { headers: { Authorization: `Bearer ${token}` } });
-
-          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
-        } catch (error: any) {
-          const status = error?.response?.status;
-          const message = error?.message || 'Error wiping device';
-          return new Response(message, { status: status });
-        }
-      }
-    },
-
-    "/api/retiredevice/:computerId": {
-      async DELETE(req) {
-        const { computerId } = req.params;
-        console.log(`Retiring device with ID: ${computerId}`);
-
-        return new Response('Not yet implemented.', { ...CORS_HEADERS, status: 501 });
-        // try {
-        //   const token = await getToken();
-        //   const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}`;
-        //   const response = await axios.delete(apiUrl, {
-        //     headers: { Authorization: `Bearer ${token}` }
-        //   });
-
-        //   if (response.status !== 204) {
-        //     return new Response('Failed to retire device on JAMF', { ...CORS_HEADERS, status: 500 });
-        //   }
-
-        //   // Send an API request to GLPI (example, haven't implemented GLPI API yet)
-        //   try {
-        //     await axios.post(
-        //       "https://glpi.example.com/api/retire-device",
-        //       { computerId },
-        //       { headers: { "Authorization": "Bearer YOUR_GLPI_TOKEN" } }
-        //     );
-        //   } catch (glpiError) {
-        //     console.error("Failed to notify GLPI:", glpiError);
-        //     return new Response('Device retired on JAMF, but failed to notify GLPI', { ...CORS_HEADERS, status: 500 });
-        //   }
-        // } catch (error: any) {
-        //   const status = error?.response?.status;
-        //   const message = error?.message || 'Error retiring device';
-        //   return new Response(message, { status: status });
-        // }
       }
     },
 
@@ -289,54 +277,60 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/api/change-prestage/:prestageId/:serialNumber": {
-      async POST(req) {
-        const { serialNumber, prestageId } = req.params;
-        console.log(`Adding device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
+    "/api/wipedevice/:computerId": {
+      async DELETE(req) {
+        const { computerId } = req.params;
+        console.log(`Wiping device with ID: ${computerId}`);
 
         try {
-          const prestages = await getPrestages();
-          const prestage = prestages.find(p => p.id === Number(prestageId));
-          if (!prestage) {
-            return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
-          }
-
           const token = await getToken();
-          const response = await axios.post(
-            `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope`,
-            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}/erase`;
+          const response = await axios.post(apiUrl,
+            { pin: "123456" },
+            { headers: { Authorization: `Bearer ${token}` } });
+
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
           const status = error?.response?.status;
-          if (status === 400) {
-            return new Response('Please remove from current prestage before adding', { ...CORS_HEADERS, status: 400 });
-          }
-          return new Response('Error adding device to prestage', { ...CORS_HEADERS, status: 500 });
+          const message = error?.message || 'Error wiping device';
+          return new Response(message, { status: status });
         }
-      },
+      }
+    },
 
+    "/api/retiredevice/:computerId": {
       async DELETE(req) {
-        const { prestageId, serialNumber } = req.params;
-        console.log(`Removing device with serial number: ${serialNumber} from prestage: ${prestageId}`);
+        const { computerId } = req.params;
+        console.log(`Retiring device with ID: ${computerId}`);
 
-        try {
-          const prestages = await getPrestages();
-          const prestage = prestages.find(p => p.displayName === prestageId);
-          if (!prestage) {
-            return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
-          }
-          const token = await getToken();
-          const response = await axios.post(
-            `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
-            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
-        } catch {
-          return new Response('Error removing device from prestage', { ...CORS_HEADERS, status: 500 });
-        }
+        return new Response('Not yet implemented.', { ...CORS_HEADERS, status: 501 });
+        // try {
+        //   const token = await getToken();
+        //   const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}`;
+        //   const response = await axios.delete(apiUrl, {
+        //     headers: { Authorization: `Bearer ${token}` }
+        //   });
+
+        //   if (response.status !== 204) {
+        //     return new Response('Failed to retire device on JAMF', { ...CORS_HEADERS, status: 500 });
+        //   }
+
+        //   // Send an API request to GLPI (example, haven't implemented GLPI API yet)
+        //   try {
+        //     await axios.post(
+        //       "https://glpi.example.com/api/retire-device",
+        //       { computerId },
+        //       { headers: { "Authorization": "Bearer YOUR_GLPI_TOKEN" } }
+        //     );
+        //   } catch (glpiError) {
+        //     console.error("Failed to notify GLPI:", glpiError);
+        //     return new Response('Device retired on JAMF, but failed to notify GLPI', { ...CORS_HEADERS, status: 500 });
+        //   }
+        // } catch (error: any) {
+        //   const status = error?.response?.status;
+        //   const message = error?.message || 'Error retiring device';
+        //   return new Response(message, { status: status });
+        // }
       }
     },
 
@@ -390,6 +384,12 @@ const server: Bun.Server = Bun.serve({
             return new Response('Error updating preload/computer information', { ...CORS_HEADERS, status: 500 });
           }
         }
+      }
+    },
+
+    "/api/*": {
+      async OPTIONS() {
+        return new Response('CORS preflight', CORS_HEADERS);
       }
     },
 
