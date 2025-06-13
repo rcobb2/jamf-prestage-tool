@@ -6,7 +6,7 @@
     "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.8.3"
   },
   "private": true,
   "scripts": {
@@ -14,7 +14,7 @@
   },
   "type": "module",
   "dependencies": {
-    "@azure/msal-browser": "^4.13.0",
+    "@azure/msal-browser": "^4.13.1",
     "alpinejs": "^3.14.9",
     "axios": "^1.9.0"
   }
