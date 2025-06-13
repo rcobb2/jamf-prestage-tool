@@ -1,4 +1,4 @@
-/* For WebKit browsers (Chrome, Safari, Edge) */
+/* Hiding the scrollbar for WebKit browsers (Chrome, Safari, Edge)  */
 html::-webkit-scrollbar,
 body::-webkit-scrollbar {
   display: none;
@@ -7,7 +7,7 @@ body::-webkit-scrollbar {
   height: 0;
 }
 
-/* For Firefox and Internet Explorer/Edge */
+/* Hiding the scrollbar for Firefox and Internet Explorer/Edge */
 html,
 body {
   /* For Firefox */
