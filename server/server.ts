@@ -166,7 +166,7 @@ const server: Bun.Server = Bun.serve({
         const { computerId } = req.params;
         console.log(`Retiring device with ID: ${computerId}`);
 
-        return new Response('Not implemented yet', { ...CORS_HEADERS, status: 501 });
+        return new Response('Not yet implemented.', { ...CORS_HEADERS, status: 501 });
         // try {
         //   const token = await getToken();
         //   const apiUrl = `${baseUrl}/api/v1/computer-inventory/${computerId}`;
