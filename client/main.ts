@@ -46,6 +46,10 @@ function createAlpineData() {
 
     async search() {
       try {
+        if (!this.searchData) {
+          return;
+        }
+
         const response = await axios.get(`/data/${this.searchData}`);
 
         this.dataList = response.data;
