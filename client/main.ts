@@ -76,10 +76,7 @@ function createAlpineData() {
 
         // Optionally add to prestage, if updateToPrestage is set
         if (this.updateToPrestage !== 0) {
-          await axios.post('/add-to-prestage', {
-            prestageId: this.updateToPrestage,
-            serialNumber: current.serialNumber
-          });
+          await axios.post(`/add-to-prestage/${this.updateToPrestage}/${current.serialNumber}`);
         }
 
         // Update preload

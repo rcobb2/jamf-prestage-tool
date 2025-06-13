@@ -6,13 +6,13 @@ const SERVER_API_URL = `https://${SERVER_API_HOSTNAME}:${SERVER_API_PORT}`;
 const tokenUrl = `${baseUrl}/api/oauth/token`;
 
 // CORS headers
-axios.defaults.headers.common["Access-Control-Allow-Origin"] = `https://${SERVER_API_URL}`;
-axios.defaults.headers.common["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
-axios.defaults.headers.common["Access-Control-Allow-Headers"] = "Content-Type, Accept, Authorization";
+// axios.defaults.headers.common["Access-Control-Allow-Origin"] = `https://${SERVER_API_URL}`;
+// axios.defaults.headers.common["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
+// axios.defaults.headers.common["Access-Control-Allow-Headers"] = "Content-Type, Accept, Authorization";
 
-// Set default headers for axios
-axios.defaults.headers.common["Accept"] = "application/json";
-axios.defaults.headers.common["Content-Type"] = "application/json";
+// // Set default headers for axios
+// axios.defaults.headers.common["Accept"] = "application/json";
+// axios.defaults.headers.common["Content-Type"] = "application/json";
 
 const CORS_HEADERS: ResponseInit = {
   headers: {
@@ -38,6 +38,7 @@ async function getToken(): Promise<string> {
 }
 
 type ComputerMatch = { id: number; serial_number: string; };
+
 type JAMFResponse = {
   serialNumber: string;
   currentPrestage: string;
@@ -114,6 +115,12 @@ const server: Bun.Server = Bun.serve({
     cert: Bun.file("server.cert"),
   },
   routes: {
+    "/api/*": {
+      async OPTIONS() {
+        return new Response('CORS preflight', CORS_HEADERS);
+      }
+    },
+
     "/api/prestages": {
       async GET() {
         try {
@@ -251,128 +258,124 @@ const server: Bun.Server = Bun.serve({
           return new Response('Error fetching data', { ...CORS_HEADERS, status: 500 });
         }
       }
-    }
-  },
+    },
 
+    "/api/remove-from-prestage/:currentPrestage/:serialNumber": {
+      async DELETE(req) {
+        const { currentPrestage, serialNumber } = req.params;
+        console.log(`Removing device with serial number: ${serialNumber} from prestage: ${currentPrestage}`);
 
-  async fetch(req) {
-    const url = new URL(req.url);
-    const { method } = req;
-
-    // CORS preflight
-    // Handle CORS preflight requests
-    if (req.method === 'OPTIONS') {
-      return new Response('Departed', CORS_HEADERS);
-    }
-
-
-    // /api/remove-from-prestage
-    if (url.pathname === "/api/remove-from-prestage" && method === "POST") {
-      const body = await req.json() as JAMFResponse;
-      console.log(`Removing device with serial number: ${body.serialNumber} from prestage: ${body.currentPrestage}`);
-
-      const { serialNumber, currentPrestage } = body;
-      try {
-        const prestages = await getPrestages();
-        const prestage = prestages.find(p => p.displayName === currentPrestage);
-        if (!prestage) {
-          return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
-        }
-        const token = await getToken();
-        const response = await axios.post(
-          `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
-          { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
-      } catch {
-        return new Response('Error removing device from prestage', { ...CORS_HEADERS, status: 500 });
-      }
-    }
-
-    // /api/add-to-prestage
-    if (url.pathname === "/api/add-to-prestage" && method === "POST") {
-      const body = await req.json() as JAMFResponse;
-      const { serialNumber, prestageId } = body;
-      console.log(`Adding device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
-
-      try {
-        const prestages = await getPrestages();
-        const prestage = prestages.find(p => p.id === prestageId);
-        if (!prestage) {
-          return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
-        }
-
-        const token = await getToken();
-        const response = await axios.post(
-          `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope`,
-          { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
-      } catch (error: any) {
-        const status = error?.response?.status;
-        if (status === 400) {
-          return new Response('Please remove from current prestage before adding', { ...CORS_HEADERS, status: 400 });
-        }
-        return new Response('Error adding device to prestage', { ...CORS_HEADERS, status: 500 });
-      }
-    }
-
-    // /api/update-preload/:preloadId/:computerId
-    if (url.pathname.startsWith("/api/update-preload/") && method === "PUT") {
-      const [, , , preloadId, computerId] = url.pathname.split("/");
-      const body = await req.json() as JAMFResponse;
-      console.log(`Updating preload with ID: ${preloadId} for computer ID: ${computerId}`);
-
-      const { serialNumber, username, emailAddress, building, room, assetTag, buildingId } = body;
-      const preloadData = {
-        deviceType: 'Computer',
-        serialNumber,
-        username,
-        emailAddress,
-        building,
-        room,
-        assetTag
-      };
-      const computerData = {
-        general: { assetTag },
-        userAndLocation: { username, email: emailAddress, buildingId, room }
-      };
-      try {
-        const token = await getToken();
-        const preloadApiUrl =
-          preloadId && preloadId !== 'null'
-            ? `${baseUrl}/api/v2/inventory-preload/records/${preloadId}`
-            : `${baseUrl}/api/v2/inventory-preload/records`;
-        const preloadMethod = preloadId && preloadId !== 'null' ? 'put' : 'post';
-        const preloadResponse = await (axios as any)[preloadMethod](preloadApiUrl, preloadData, {
-          headers: { Authorization: `Bearer ${token}` }
-        });
         try {
-          const computerApiUrl = `${baseUrl}/api/v1/computers-inventory-detail/${computerId}`;
-          const computerResponse = await axios.patch(computerApiUrl, computerData, {
+          const prestages = await getPrestages();
+          const prestage = prestages.find(p => p.displayName === currentPrestage);
+          if (!prestage) {
+            return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
+          }
+          const token = await getToken();
+          const response = await axios.post(
+            `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
+            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
+        } catch {
+          return new Response('Error removing device from prestage', { ...CORS_HEADERS, status: 500 });
+        }
+      }
+    },
+
+    "/api/add-to-prestage/:prestageId/:serialNumber": {
+      async POST(req) {
+        const { serialNumber, prestageId } = req.params;
+        console.log(`Adding device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
+
+        try {
+          const prestages = await getPrestages();
+          const prestage = prestages.find(p => p.id === Number(prestageId));
+          if (!prestage) {
+            return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
+          }
+
+          const token = await getToken();
+          const response = await axios.post(
+            `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope`,
+            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
+        } catch (error: any) {
+          const status = error?.response?.status;
+          if (status === 400) {
+            return new Response('Please remove from current prestage before adding', { ...CORS_HEADERS, status: 400 });
+          }
+          return new Response('Error adding device to prestage', { ...CORS_HEADERS, status: 500 });
+        }
+      }
+    },
+
+    "/api/update-preload/:preloadId/:computerId": {
+      async PUT(req) {
+        const { preloadId, computerId } = req.params;
+        console.log(`Updating preload with ID: ${preloadId} for computer ID: ${computerId}`);
+
+        const body = await req.json() as JAMFResponse;
+        const { serialNumber, username, emailAddress, building, room, assetTag, buildingId } = body;
+        const preloadData = {
+          deviceType: 'Computer',
+          serialNumber,
+          username,
+          emailAddress,
+          building,
+          room,
+          assetTag
+        };
+        const computerData = {
+          general: { assetTag },
+          userAndLocation: { username, email: emailAddress, buildingId, room }
+        };
+        try {
+          const token = await getToken();
+          const preloadApiUrl =
+            preloadId && preloadId !== 'null'
+              ? `${baseUrl}/api/v2/inventory-preload/records/${preloadId}`
+              : `${baseUrl}/api/v2/inventory-preload/records`;
+          const preloadMethod = preloadId && preloadId !== 'null' ? 'put' : 'post';
+          const preloadResponse = await (axios as any)[preloadMethod](preloadApiUrl, preloadData, {
             headers: { Authorization: `Bearer ${token}` }
           });
-          return new Response(JSON.stringify({ preload: preloadResponse.data, computer: computerResponse.data }), { ...CORS_HEADERS, status: 200 });
-        } catch {
-          return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }), { ...CORS_HEADERS, status: 200 });
-        }
-      } catch (err: any) {
-        const { response } = err;
-        if (response) {
-          return new Response(response.data, { status: response.status });
-        } else {
-          return new Response('Error updating preload/computer information', { ...CORS_HEADERS, status: 500 });
+          try {
+            const computerApiUrl = `${baseUrl}/api/v1/computers-inventory-detail/${computerId}`;
+            const computerResponse = await axios.patch(computerApiUrl, computerData, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            return new Response(JSON.stringify({ preload: preloadResponse.data, computer: computerResponse.data }), { ...CORS_HEADERS, status: 200 });
+          } catch {
+            return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }), { ...CORS_HEADERS, status: 200 });
+          }
+        } catch (err: any) {
+          const { response } = err;
+          if (response) {
+            return new Response(response.data, { status: response.status });
+          } else {
+            return new Response('Error updating preload/computer information', { ...CORS_HEADERS, status: 500 });
+          }
         }
       }
     }
+  },
 
+
+  async fetch() {
     // Not found
-    return new Response("Not found", { ...CORS_HEADERS, status: 404 });
+    return new Response("404 Not Found", { ...CORS_HEADERS, status: 404 });
   },
   error() {
-    return new Response("404 Not Found", { ...CORS_HEADERS, status: 404 });
+    return new Response("Error: Internal Server Error", {
+      ...CORS_HEADERS,
+      status: 500,
+      statusText: "Internal Server Error",
+      headers: { "Content-Type": "text/plain" },
+    });
   },
 });
 
