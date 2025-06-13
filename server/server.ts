@@ -1,28 +1,23 @@
 import axios from "axios";
 
 const baseUrl = process.env.JAMF_INSTANCE as string;
-const { SERVER_API_HOSTNAME, SERVER_API_PORT, JAMF_CLIENT_ID, JAMF_CLIENT_SECRET } = process.env;
-const SERVER_API_URL = `https://${SERVER_API_HOSTNAME}:${SERVER_API_PORT}`;
+const { JAMF_CLIENT_ID, JAMF_CLIENT_SECRET, SERVER_API_HOSTNAME, SERVER_API_PORT, CLIENT_HOSTNAME } = process.env;
 const tokenUrl = `${baseUrl}/api/oauth/token`;
 
-// CORS headers
-// axios.defaults.headers.common["Access-Control-Allow-Origin"] = `https://${SERVER_API_URL}`;
-// axios.defaults.headers.common["Access-Control-Allow-Methods"] = "GET, POST, PUT, PATCH, DELETE, OPTIONS";
-// axios.defaults.headers.common["Access-Control-Allow-Headers"] = "Content-Type, Accept, Authorization";
-
-// // Set default headers for axios
-// axios.defaults.headers.common["Accept"] = "application/json";
-// axios.defaults.headers.common["Content-Type"] = "application/json";
+// Set default headers for axios
+axios.defaults.headers.common["Accept"] = "application/json";
+axios.defaults.headers.common["Content-Type"] = "application/json";
 
 const CORS_HEADERS: ResponseInit = {
   headers: {
-    "Access-Control-Allow-Origin": `https://${SERVER_API_URL}`,
+    "Access-Control-Allow-Origin": `https://${CLIENT_HOSTNAME}`,
     "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization",
-    "Access-Control-Allow-Credentials": "true",
+    "Access-Control-Allow-Credentials": "false",
     "Accept": "application/json",
     "Content-Type": "application/json",
-  }
+    "Cache-Control": "no-cache",
+  },
 };
 
 // Get the access token using client credentials
