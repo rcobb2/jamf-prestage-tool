@@ -253,31 +253,7 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/api/remove-from-prestage/:currentPrestage/:serialNumber": {
-      async DELETE(req) {
-        const { currentPrestage, serialNumber } = req.params;
-        console.log(`Removing device with serial number: ${serialNumber} from prestage: ${currentPrestage}`);
-
-        try {
-          const prestages = await getPrestages();
-          const prestage = prestages.find(p => p.displayName === currentPrestage);
-          if (!prestage) {
-            return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
-          }
-          const token = await getToken();
-          const response = await axios.post(
-            `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
-            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
-          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
-        } catch {
-          return new Response('Error removing device from prestage', { ...CORS_HEADERS, status: 500 });
-        }
-      }
-    },
-
-    "/api/add-to-prestage/:prestageId/:serialNumber": {
+    "/api/change-prestage/:prestageId/:serialNumber": {
       async POST(req) {
         const { serialNumber, prestageId } = req.params;
         console.log(`Adding device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
@@ -302,6 +278,28 @@ const server: Bun.Server = Bun.serve({
             return new Response('Please remove from current prestage before adding', { ...CORS_HEADERS, status: 400 });
           }
           return new Response('Error adding device to prestage', { ...CORS_HEADERS, status: 500 });
+        }
+      },
+
+      async DELETE(req) {
+        const { prestageId, serialNumber } = req.params;
+        console.log(`Removing device with serial number: ${serialNumber} from prestage: ${prestageId}`);
+
+        try {
+          const prestages = await getPrestages();
+          const prestage = prestages.find(p => p.displayName === prestageId);
+          if (!prestage) {
+            return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
+          }
+          const token = await getToken();
+          const response = await axios.post(
+            `${baseUrl}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
+            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
+        } catch {
+          return new Response('Error removing device from prestage', { ...CORS_HEADERS, status: 500 });
         }
       }
     },
