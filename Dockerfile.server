@@ -1,4 +1,4 @@
-# As of development, bun is v1.2.9
+# As of development, bun is v1.2.16
 FROM oven/bun:1.2-alpine AS build
 
 # Set the working directory
