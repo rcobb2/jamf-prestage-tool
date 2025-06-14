@@ -62,8 +62,8 @@ Update Static Computer Groups, Read Computer Security, Read Computers, Update Co
    - Adjust any environment variables, API endpoints, or token values in the scripts to match your environment. This is expecially important if you want some other features to work (such as the 'Retire' button)  
    - If desired, create custom hooks or additional scripts to integrate with your internal workflows (e.g., sending notifications after enrollment).
 
-## Expalnations & Details
-### Old README, Still need to update
+## Explainations & Details
+# Old README, Still need to update
 
 You'll need to create a JAMF API Role that has these privileges, and then assign an API client to that role, That will give you the Client ID and Client Secret.
 
