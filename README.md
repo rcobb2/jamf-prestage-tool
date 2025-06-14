@@ -63,6 +63,15 @@ Update Static Computer Groups, Read Computer Security, Read Computers, Update Co
    - If desired, create custom hooks or additional scripts to integrate with your internal workflows (e.g., sending notifications after enrollment).
 
 ## Explainations & Details
+
+
+## Support / Further Configuration
+- Check the repository's [Issues](../../issues) for tips or existing discussions.
+- Submit a pull request if you contribute improvements or new features.
+
+## License
+This project is licensed under the [GPL 3.0 license](LICENSE).
+
 # Old README, Still need to update
 
 You'll need to create a JAMF API Role that has these privileges, and then assign an API client to that role, That will give you the Client ID and Client Secret.
@@ -136,11 +145,3 @@ Preload Details:
 
   Update Preload Information:
   This will attempt to update the preload record AND the current computer's inventory record allowing you to remediate devices with this tool if they've already been enrolled prior to the data being available, however, if a device hasn't been enrolled yet and you press this button, it will simply let you know that it was able to update the preload and not the inventory record.
-
-
-## Support / Further Configuration
-- Check the repository's [Issues](../../issues) for tips or existing discussions.
-- Submit a pull request if you contribute improvements or new features.
-
-## License
-This project is licensed under the [GPL 3.0 license](LICENSE).
