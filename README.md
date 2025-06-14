@@ -1,5 +1,34 @@
-You will need to set an a .env file for these secrets and settings - place these in the root directory of the project.
+# Jamf Prestage Tool
 
+A lightweight tool to automate and customize the Jamf Prestage enrollment experience for your organization. This repository includes scripts and configuration files designed to simplify the enrollment process and brand it with your company's colors and logo.
+
+## Requirements
+- A Jamf Pro instance with appropriate administrative privileges.
+- Basic knowledge of scripting & related tools (Bash, Javascript, Docker).
+- Docker Desktop (or your favorite Docker client! You can even use the CLI 🥲)
+- (Optional) Access to your company's logo and color codes for customization.
+
+## Installation
+1. Clone this repository or download its contents:
+   ```bash
+   git clone https://github.com/rcobb2/jamf-prestage-tool.git
+   ```
+2. Navigate to the project directory:
+   ```bash
+   cd jamf-prestage-tool
+   ```
+3. Add your own .env file, as shown below (see "Enviroment Variables" below)
+4. Configure the JAMF API (see "JAMF Setup" below)
+
+## Usage
+1. Ensure your environment is properly configured.
+2. Run the main script to initiate the automated process:
+   ```bash
+   docker compose up
+   ```
+3. Go to your cool new tool using https!
+
+## Enviroment Variables
 ```env
 # Azure MSAL Configuration
 AZURE_CLIENT_ID=                                          # Entra Application Registration Client ID
@@ -20,8 +49,21 @@ JAMF_CLIENT_ID=                                           # JAMF API Client ID
 JAMF_CLIENT_SECRET=                                       # JAMF API Client Secret
 ```
 
+## JAMF Setup
 JAMF API role privileges:
-Update Mobile Device PreStage Enrollments, Read Computers, Read Mobile Device PreStage Enrollments, Assign Users to Mobile Devices, Read Inventory Preload Records, Read Computer Inventory Collection, Read Computer Inventory Collection Settings, Update Computers, Update Inventory Preload Records, Update User, Assign Users to Computers, Delete Mobile Device PreStage Enrollments, Read Computer Extension Attributes, Read Device Enrollment Program Instances, Read User, Delete Computer PreStage Enrollments, Create Inventory Preload Records, Read Computer Enrollment Invitations, Read Computer PreStage Enrollments, Update Computer PreStage Enrollments, Read Buildings.
+Update Static Computer Groups, Read Computer Security, Read Computers, Update Computer Security, Read Static Computer Groups, Read Re-enrollment, Update Computer Inventory Collection, View Local Admin Password Audit History, Update Computer Extension Attributes, Read Computer Inventory Collection Settings, Update Computers, Update Smart Computer Groups, Update Computer Inventory Collection Settings, Update Local Admin Password Settings, Read Computer PreStage Enrollments, Read Computer Enrollment Invitations, Read Webhooks, Read User Extension Attributes, Update Smart User Groups, Read Computer Check-In, Read Static Mobile Device Groups, Read Static User Groups, Update Computer Enrollment Invitations, View Local Admin Password, Read Smart Computer Groups, Read Computer Inventory Collection, Update Smart Mobile Device Groups, Read Smart Mobile Device Groups, Update Computer Check-In, Read Computer Extension Attributes, Read Smart User Groups, Read Software Update Servers, Update Computer PreStage Enrollments
+
+## Customization
+1. **Logo & Branding**  
+   - Replace the default logo file in the cliennt folder with your company's logo (same file name or update references in scripts).  
+   - Add your own theme in the `client/styles.css` file to use your organization's colors.
+
+2. **Scripts & Configurations**  
+   - Adjust any environment variables, API endpoints, or token values in the scripts to match your environment. This is expecially important if you want some other features to work (such as the 'Retire' button)  
+   - If desired, create custom hooks or additional scripts to integrate with your internal workflows (e.g., sending notifications after enrollment).
+
+## Expalnations & Details
+### Old README, Still need to update
 
 You'll need to create a JAMF API Role that has these privileges, and then assign an API client to that role, That will give you the Client ID and Client Secret.
 
@@ -94,3 +136,11 @@ Preload Details:
 
   Update Preload Information:
   This will attempt to update the preload record AND the current computer's inventory record allowing you to remediate devices with this tool if they've already been enrolled prior to the data being available, however, if a device hasn't been enrolled yet and you press this button, it will simply let you know that it was able to update the preload and not the inventory record.
+
+
+## Support / Further Configuration
+- Check the repository's [Issues](../../issues) for tips or existing discussions.
+- Submit a pull request if you contribute improvements or new features.
+
+## License
+This project is licensed under the [GPL 3.0 license](LICENSE).
