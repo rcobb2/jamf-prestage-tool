@@ -29,40 +29,94 @@ A lightweight tool to automate and customize the Jamf Prestage enrollment experi
 3. Go to your cool new tool using https!
 
 ## Enviroment Variables
+The following environment variables are used to configure the application. The values shown here are the defaults/examples and need to be changed.
+
+The /common segment in the Azure AD authority URL (https://login.microsoftonline.com/common) allows users from any Azure AD tenant to sign in. This is useful for multi-tenant applications where users may belong to different organizations.
+
+If you want to restrict sign-in to users from a specific Azure AD tenant, you can replace /common with your tenant's ID or domain name:
+
 ```env
 # Azure MSAL Configuration
-AZURE_CLIENT_ID=                                          # Entra Application Registration Client ID
-AZURE_AUTHORITY=https://login.microsoftonline.com/        # Add your tenant ID after the slash or https://login.microsoftonline.com/common
+AZURE_CLIENT_ID=11111111-2222-3333-4444-555566667777           # Entra Application Registration Client ID
+
+### Multi-tenant (any user):
+AZURE_AUTHORITY=https://login.microsoftonline.com/common
+### Single-tenant (specific organization):
+AZURE_AUTHORITY=https://login.microsoftonline.com/tenant-id    # Replace with your Azure AD tenant's GUID or domain (e.g., contoso.microsoft.com).
 
 # Client Configuration
-CLIENT_HOSTNAME=                                          # Hostname you want for the client
-CLIENT_PORT=                                              # Port you want for the client
-THEME=                                                    # Default theme you want
+CLIENT_HOSTNAME=localhost                                      # Hostname you want for the client
+CLIENT_PORT=43                                                 # Port you want for the client
+THEME=dim                                                      # Default theme you want
 
 # Server Configuration
-SERVER_API_HOSTNAME=                                      # Hostname you want for the server
-SERVER_API_PORT=                                          # Port you want for the server
+SERVER_API_HOSTNAME=localhost                                  # Hostname you want for the server
+SERVER_API_PORT=8443                                           # Port you want for the server
 
 # JAMF Instance and Credentials
-JAMF_INSTANCE=                                            # Base JAMF URL e.g. https://constoso.jamfcloud.com
-JAMF_CLIENT_ID=                                           # JAMF API Client ID
-JAMF_CLIENT_SECRET=                                       # JAMF API Client Secret
+JAMF_INSTANCE=https://constoso.jamfcloud.com                   # Base JAMF URL e.g. https://constoso.jamfcloud.com
+JAMF_CLIENT_ID=your_jamf_client_ID_here                        # JAMF API Client ID (example UUID)
+JAMF_CLIENT_SECRET=your_jamf_client_secret_here                # JAMF API Client Secret
 ```
 
 ## JAMF Setup
+Create an API role in Jamf Pro with the privileges listed below, then create a new API client and assign it to this role. This process will provide you with the Client ID and Client Secret needed for authentication.
+
 JAMF API role privileges:
 Update Static Computer Groups, Read Computer Security, Read Computers, Update Computer Security, Read Static Computer Groups, Read Re-enrollment, Update Computer Inventory Collection, View Local Admin Password Audit History, Update Computer Extension Attributes, Read Computer Inventory Collection Settings, Update Computers, Update Smart Computer Groups, Update Computer Inventory Collection Settings, Update Local Admin Password Settings, Read Computer PreStage Enrollments, Read Computer Enrollment Invitations, Read Webhooks, Read User Extension Attributes, Update Smart User Groups, Read Computer Check-In, Read Static Mobile Device Groups, Read Static User Groups, Update Computer Enrollment Invitations, View Local Admin Password, Read Smart Computer Groups, Read Computer Inventory Collection, Update Smart Mobile Device Groups, Read Smart Mobile Device Groups, Update Computer Check-In, Read Computer Extension Attributes, Read Smart User Groups, Read Software Update Servers, Update Computer PreStage Enrollments
 
 ## Customization
-1. **Logo & Branding**  
-   - Replace the default logo file in the cliennt folder with your company's logo (same file name or update references in scripts).  
+1. **Logo & Branding**
+   - Replace the default logo file in the cliennt folder with your company's logo (same file name or update references in scripts).
    - Add your own theme in the `client/styles.css` file to use your organization's colors.
 
-2. **Scripts & Configurations**  
-   - Adjust any environment variables, API endpoints, or token values in the scripts to match your environment. This is expecially important if you want some other features to work (such as the 'Retire' button)  
+2. **Scripts & Configurations**
+   - Adjust any environment variables, API endpoints, or token values in the scripts to match your environment. This is expecially important if you want some other features to work (such as the 'Retire' button)
    - If desired, create custom hooks or additional scripts to integrate with your internal workflows (e.g., sending notifications after enrollment).
 
-## Explainations & Details
+## Explanations & Details
+
+### How We Use Prestages and Inventory Preload
+In our environment, we use prestages to define a device's purpose (such as Faculty/Staff, Classrooms, Labs, Loaners, or test devices). You might have different prestages for departments or other categories. We also use the "Inventory Preload" feature to pre-fill details like User, Asset Tag, Building, and Room. This supports our Zero-Touch deployment workflows.
+
+We have scripts that name devices based on their use case, using information like asset tag, device type, building, and room. These scripts run after enrollment and rely on preloaded data to set the correct computer name.
+
+Previously, the process was manual and error-prone:
+1. Assign the device to a prestage in the JAMF Pro portal.
+2. If already assigned, search for its current prestage.
+3. Upload a CSV with preload data.
+
+Staff often forgot to upload or accidentally overwrote data, making the process slow and inconsistent.
+
+This tool brings all the key information together in one place, making it easy to update fields as needed. After authenticating with Azure, you can quickly manage prestage assignments and preload data.
+
+### Searching for a Computer
+Use the search box to find a computer by name, serial number, asset tag, MAC address, or user. The tool uses the JAMF Classic API (`JSSResource/computers/match`), which supports wildcards (`*`). For example:
+
+- `*12345*` finds anything containing `12345`
+- `12345*` finds anything starting with `12345`
+- `*12345` finds anything ending with `12345`
+
+If no computer is found, the tool will check your Automated Device Enrollment (DEP) instances for the serial number.
+
+**Tip:** Avoid broad searches like just `*` or `*0*`, as this can overload your JAMF server.
+
+**Search results include:**
+- **Computer Details:** JAMF ID, name, serial number
+- **Last Run Prestage:** The prestage used during the last enrollment
+- **Current Prestage:** The currently assigned prestage
+
+### Preload Details
+- **Username:** The assigned user's username from the preload record.
+- **Email:** Only username and email are shown, since these can be used to fill in other fields (like real name or department) from your directory service (LDAP, Entra, Google).
+- **Asset Tag:** Pulled from the inventory record, not the preload entry.
+- **Building:** Shows the building from the preload record. If the building isn’t in JAMF, you can select a valid one.
+- **Room:** Pulled from the preload record.
+
+At the bottom, you’ll find a dropdown with your available prestages. To assign a new prestage, first remove the current one (the tool will notify you if needed).
+
+**Update Preload Information:**
+This updates both the preload and inventory records if the device is already enrolled. If not, only the preload record is updated and you’ll be notified.
 
 
 ## Support / Further Configuration
@@ -71,77 +125,3 @@ Update Static Computer Groups, Read Computer Security, Read Computers, Update Co
 
 ## License
 This project is licensed under the [GPL 3.0 license](LICENSE).
-
-# Old README, Still need to update
-
-You'll need to create a JAMF API Role that has these privileges, and then assign an API client to that role, That will give you the Client ID and Client Secret.
-
-This project is a web app for JAMF Pro cloud and Entra ID that helps simplify and collate various menu's in JAMF to create a more streamlined experience managing MacOS devices regarding Prestage and Preload information.
-
-Context:
-In my environment, we utilize prestages to determine the device's use case (For us, Faculty/Staff, Classrooms, Labs, Loaner machines, and various test flows), but likely you might also have different prestages for different departments etc.
-We also leverage the "Inventory Preload" feature to pre-fill information where we can such as (User, Asset Tag, Building, Room). This becomes helpful with Zero-Touch deployment workflows as for us:
-
-We have scripts depending on the device's use case that set the computer's name and by extension the machines JAMF Record name to be CU (prefix) 12345 (asset tag) M (device type identifier - in this case M = Mac) or alternatively if the machine is assigned to a classroom/lab and not an individual user Test (building) 123 (room) - 12345 (asset tag) m (device type identifier).
-
-This script is run upon enrollment completion (although you could do it directly in the prestage), meaning that we need this data "Preloaded" for it to pull from to populate the required variables to succesfully name a machine.
-
-Before this tool, we would have to:
-
-1. Go into the JAMF Pro portal
-2. Go to computers -> PreStage Enrollments and assuming the device was not already assigned to a prestage, select the prestage you wish to assign the device to, then assign. One of the flaws in JAMF is that if a device is already assigned to a prestage it will not show in the available list of devices outside of the one it is currently assigned to causing our staff to have to go hunting for where the device was currently assigned.
-3. Once the device is assigned to the correct prestage, we would have to fill out a csv template and upload it into JAMF to get the preload data in there.
-
-We ran into a lot of issues with our staff forgetting to upload this information, or overwriting previously uploaded information unintentionally - along with it being a lot of clicks, pages, and menu's
-
-This tool helps collate the most important information (atleast in our environment) and allows you to update those fields:
-
-Once you've authenticated to your Entra ID environment to get access to the tool (I'm working on making this auth feature optional)
-
-You can search for a computer utilizing the search box:
-This uses the JAMF Classic API endpoint called JSSResource/computers/match
-
-It _should_ find computers based on:
-
-1. Name
-2. Serial Number
-3. Asset Tag
-4. Mac Address
-5. User
-
-Jamf's Documentation claims:
-"Name, mac address, etc. to filter by. Match uses the same format as the general search in Jamf Pro. For instance, admin\* can be used to match computer names that begin with admin"
-
-It's worth noting explicitly that you can use wildcards (*) to help with your search
-i.e. *12345* will return anything that has 12345 in it, 12345* = anything that starts with 12345, \*12345 = anything ending in 12345
-
-If the search does not find any computer records, it will then load your device enrollment instances (Automated Device Enrollment / DEP) and then search for the serial number in those instances to find devices you have available to assign to prestage/preload that haven't been set up yet.
-
-NOTE: Don't search beligerently with just a *, or something similarly (like *0\*) as this will return just about every record and will certainly fail the search, and possible lock up/down your JAMF Cloud server.
-
-Once you've searched, it will return 2 sections:
-Computer Details:
-  ID: This is the computer's JAMF ID - it's largely unimportant, but if you've worked with the API it can be useful.
-  Computer Name
-  Computer Serial
-  Last Run Prestage: This represents the prestage the machine was enrolled under last - this can differ from a currently assigned one, so I've displayed both here:
-  Current Prestage: see above
-
-Preload Details:
-  Note: These reflect the values that are found in the preload record for the device (if found/present) with the exception of Asset Tag
-
-  Username: Assigned user's username
-
-  Email: The reason I've only included these fields instead of others is that depending on your directory service (LDAP, Entra, Google) these 2 fields should be enough to populate the other fields (Real name, department, phone number) if you use them.
-
-  Asset Tag: NOTE: This field is populated from the inventory record, and not the preload entry
-
-  Building: This will query your buildings set up in JAMF, and set the currently selected to the one in your preload record
-  NOTE: It may be possible for a preload record to have a building not in JAMF - not sure how that would be handled here, but you should be able to set it to a proper building regardless.
-
-  Room:
-  At the bottom, there's a dropdown populated with the prestages in your environment.
-  Note: You will need to remove from a currently assigned prestage prior to assigning to a new one - it will notify you if this occurs.
-
-  Update Preload Information:
-  This will attempt to update the preload record AND the current computer's inventory record allowing you to remediate devices with this tool if they've already been enrolled prior to the data being available, however, if a device hasn't been enrolled yet and you press this button, it will simply let you know that it was able to update the preload and not the inventory record.
