@@ -91,12 +91,10 @@ async function cleanupGLPI(session_token: string) {
 
 // Function to get Clearpass access token
 async function getClearpassToken() {
-  const clearpassResp = await axios.post(`${CLEARPASS_INSTANCE}/oauth/token`, {
+  const clearpassResp = await axios.post(`${CLEARPASS_INSTANCE}/oauth`, {
     grant_type: "client_credentials",
     client_id: CLEARPASS_CLIENT_ID,
     client_secret: CLEARPASS_CLIENT_SECRET,
-  }, {
-    headers: { 'Content-Type': 'application/json' }
   });
 
   if (clearpassResp.status !== 200) {
@@ -111,15 +109,12 @@ async function getClearpassToken() {
 async function deleteClearpassMAC(macAddress: string): Promise<any> {
   const token = await getClearpassToken();
 
-  const response = await axios.delete(`${CLEARPASS_INSTANCE}/api/endpoint/mac-address/${macAddress}`, {
+  const response = await axios.delete(`${CLEARPASS_INSTANCE}/endpoint/mac-address/${macAddress}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     }
   });
 
-  if (response.status !== 204) {
-    throw new Error(`Failed to delete MAC address from Clearpass: ${response.status} ${response.data}`);
-  }
 
   console.log(`Successfully deleted MAC address ${macAddress} from Clearpass`);
   return response.data;
@@ -172,6 +167,24 @@ async function getPrestageAssignments(serialNumber: string): Promise<{ serialNum
     }
   }
   return { serialNumber, displayName: 'Unassigned' };
+}
+
+async function wipeDevice(computerId: string): Promise<Response> {
+  console.log(`Wiping device with ID: ${computerId}`);
+
+  try {
+    const token = await getJAMFToken();
+    const apiUrl = `${JAMF_INSTANCE}/api/v1/computer-inventory/${computerId}/erase`;
+    const response = await axios.post(apiUrl,
+      { pin: "123456" },
+      { headers: { Authorization: `Bearer ${token}` } });
+
+    return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
+  } catch (error: any) {
+    const status = error?.response?.status;
+    const message = error?.message || 'Error wiping device';
+    return new Response(message, { status: status });
+  }
 }
 
 // Main handler
@@ -362,21 +375,8 @@ const server: Bun.Server = Bun.serve({
     "/api/wipedevice/:computerId": {
       async DELETE(req) {
         const { computerId } = req.params;
-        console.log(`Wiping device with ID: ${computerId}`);
 
-        try {
-          const token = await getJAMFToken();
-          const apiUrl = `${JAMF_INSTANCE}/api/v1/computer-inventory/${computerId}/erase`;
-          const response = await axios.post(apiUrl,
-            { pin: "123456" },
-            { headers: { Authorization: `Bearer ${token}` } });
-
-          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
-        } catch (error: any) {
-          const status = error?.response?.status;
-          const message = error?.message || 'Error wiping device';
-          return new Response(message, { status: status });
-        }
+        return await wipeDevice(computerId)
       }
     },
 
@@ -388,6 +388,12 @@ const server: Bun.Server = Bun.serve({
         // return new Response('Not yet implemented.', { ...CORS_HEADERS, status: 501 });
 
         try {
+          // First, wipe the device using JAMF API
+          const jamfWipeResp = await wipeDevice(computerId);
+          if (jamfWipeResp.status !== 200) {
+            return new Response('Failed to wipe device on JAMF', { ...CORS_HEADERS, status: 500 });
+          }
+
           // Get JAMF API token and retire (delete) the device from JAMF
           const token = await getJAMFToken();
           const jamfResp = await axios.delete(`${JAMF_INSTANCE}/api/v1/computers-inventory/${computerId}`, {
@@ -397,6 +403,7 @@ const server: Bun.Server = Bun.serve({
           if (jamfResp.status !== 204) {
             return new Response('Failed to retire device on JAMF', { ...CORS_HEADERS, status: 500 });
           }
+
 
           // Start a GLPI session to update the device state
           const glpiTokenResp = await getGLPIToken();
