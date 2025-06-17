@@ -52,7 +52,11 @@ function createAlpineData() {
           return;
         }
 
-        const response = await axios.get(`/data/${this.searchData}`);
+        const response = await axios.get(`/data/${this.searchData}`)
+          .catch((error: any) => {
+            console.error('Error fetching data:', error.response?.data || error.message);
+            throw error;
+          });
 
         this.dataList = response.data;
         this.dataListCopy = JSON.parse(JSON.stringify(this.dataList));
@@ -82,7 +86,11 @@ function createAlpineData() {
 
         // Optionally add to prestage, if updateToPrestage is set
         if (this.updateToPrestage !== 0) {
-          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`);
+          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`)
+            .catch((error: any) => {
+              console.error('Error updating prestage:', error.response?.data || error.message);
+              throw error;
+            });
         }
 
         // Update preload
@@ -99,7 +107,11 @@ function createAlpineData() {
             current.building = this.updateToBuilding;
           }
 
-          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current);
+          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current)
+            .catch((error: any) => {
+              console.error('Error updating preload:', error.response?.data || error.message);
+              throw error;
+            });
         }
 
         // Check if there are no changes to update
@@ -139,7 +151,11 @@ function createAlpineData() {
           return;
         }
 
-        await axios.delete(`/wipedevice/${current.computerId}`);
+        await axios.delete(`/wipedevice/${current.computerId}`)
+          .catch((error: any) => {
+            console.error('Error wiping device:', error.response?.data || error.message);
+            throw error;
+          });
         this.errorMessage = '';
         this.successMessage = 'Device wipe sent.';
         this.dataList.splice(this.dataIndex, 1);
@@ -164,7 +180,11 @@ function createAlpineData() {
           return;
         }
 
-        await axios.delete(`/retiredevice/${current.computerId}/${current.serialNumber}/${current.macAddress}/${current.altMacAddress}`);
+        await axios.delete(`/retiredevice/${current.computerId}/${current.serialNumber}/${current.macAddress}/${current.altMacAddress}`)
+          .catch((error: any) => {
+            console.error('Error retiring device:', error.response?.data || error.message);
+            throw error;
+          });
         this.errorMessage = '';
         this.successMessage = 'Device retired successfully.';
         this.dataList.splice(this.dataIndex, 1);
@@ -183,7 +203,11 @@ function fetchPrestages() {
     prestages: [],
 
     async init() {
-      const response: AxiosResponse = await axios.get(`/prestages`);
+      const response: AxiosResponse = await axios.get(`/prestages`)
+        .catch((error: any) => {
+          console.error('Error fetching prestages:', error.response?.data || error.message);
+          throw error;
+        });
       response.data.sort((a: { displayName: string; }, b: { displayName: string; }) => a.displayName.localeCompare(b.displayName));
       this.prestages = response.data;
     }
@@ -195,7 +219,11 @@ function fetchBuildings() {
     buildings: [],
 
     async init() {
-      const response: AxiosResponse = await axios.get(`/buildings`);
+      const response: AxiosResponse = await axios.get(`/buildings`)
+        .catch((error: any) => {
+          console.error('Error fetching buildings:', error.response?.data || error.message);
+          throw error;
+        });
       response.data.sort((a: { name: string; }, b: { name: string; }) => a.name.localeCompare(b.name));
       this.buildings = response.data;
     }
