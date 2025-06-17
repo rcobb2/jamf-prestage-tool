@@ -401,9 +401,8 @@ const server: Bun.Server = Bun.serve({
           });
 
           if (jamfResp.status !== 204) {
-            return new Response('Failed to retire device on JAMF', { ...CORS_HEADERS, status: 500 });
+            return new Response(`Failed to retire device on JAMF: ${jamfResp.status} ${jamfResp.data}`, { ...CORS_HEADERS, status: 500 });
           }
-
 
           // Start a GLPI session to update the device state
           const glpiTokenResp = await getGLPIToken();
