@@ -46,7 +46,7 @@ AZURE_AUTHORITY=https://login.microsoftonline.com/tenant-id    # Replace with yo
 
 # Client Configuration
 CLIENT_HOSTNAME=localhost                                      # Hostname you want for the client
-CLIENT_PORT=43                                                 # Port you want for the client
+CLIENT_PORT=443                                                # Port you want for the client (If you change this, you'll likely need to change the CORS origin on server/server.ts)
 THEME=dim                                                      # Default theme you want
 
 # Server Configuration
