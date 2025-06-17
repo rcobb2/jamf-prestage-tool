@@ -170,20 +170,19 @@ async function getPrestageAssignments(serialNumber: string): Promise<{ serialNum
 }
 
 async function wipeDevice(computerId: string): Promise<Response> {
-  console.log(`Wiping device with ID: ${computerId}`);
-
   try {
     const token = await getJAMFToken();
-    const apiUrl = `${JAMF_INSTANCE}/api/v1/computer-inventory/${computerId}/erase`;
-    const response = await axios.post(apiUrl,
+    const response = await axios.post(`${JAMF_INSTANCE}/api/v1/computer-inventory/${computerId}/erase`,
       { pin: "123456" },
-      { headers: { Authorization: `Bearer ${token}` } });
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
 
     return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
   } catch (error: any) {
     const status = error?.response?.status;
-    const message = error?.message || 'Error wiping device';
-    return new Response(message, { status: status });
+    const message = error?.response?.data || 'Error wiping device';
+
+    return new Response(JSON.stringify(message), { status: status });
   }
 }
 
@@ -375,6 +374,7 @@ const server: Bun.Server = Bun.serve({
     "/api/wipedevice/:computerId": {
       async DELETE(req) {
         const { computerId } = req.params;
+        console.log(`Wiping device with ID: ${computerId}`);
 
         return await wipeDevice(computerId)
       }
@@ -385,13 +385,11 @@ const server: Bun.Server = Bun.serve({
         const { computerId, serialNumber, macAddress, altMacAddress } = req.params;
         console.log(`Retiring device with ID: ${computerId}`);
 
-        // return new Response('Not yet implemented.', { ...CORS_HEADERS, status: 501 });
-
         try {
           // First, wipe the device using JAMF API
           const jamfWipeResp = await wipeDevice(computerId);
           if (jamfWipeResp.status !== 200) {
-            return new Response('Failed to wipe device on JAMF', { ...CORS_HEADERS, status: 500 });
+            return new Response(`Failed to wipe device on JAMF: ${jamfWipeResp.status} ${jamfWipeResp.body}`, { ...CORS_HEADERS, status: 500 });
           }
 
           // Get JAMF API token and retire (delete) the device from JAMF
