@@ -383,7 +383,7 @@ const server: Bun.Server = Bun.serve({
         const { computerId, serialNumber, macAddress } = req.params;
         console.log(`Retiring device with ID: ${computerId}`);
 
-        return new Response('Not yet implemented.', { ...CORS_HEADERS, status: 501 });
+        // return new Response('Not yet implemented.', { ...CORS_HEADERS, status: 501 });
 
         try {
           // Get JAMF API token and retire (delete) the device from JAMF
