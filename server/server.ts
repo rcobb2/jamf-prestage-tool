@@ -409,43 +409,44 @@ const server: Bun.Server = Bun.serve({
             return new Response('Failed to get GLPI session token', { ...CORS_HEADERS, status: 500 });
           }
 
+          console.log(`GPLI not in use yet, skipping GLPI retirement steps.`);
           // Search for the computer in GLPI by serial number
-          const params = new URLSearchParams({
-            'criteria[0][field]': '5', // Field 5 is usually serial number in GLPI
-            'criteria[0][searchtype]': 'contains',
-            'criteria[0][value]': `^${serialNumber}$`,
-          });
+          // const params = new URLSearchParams({
+          //   'criteria[0][field]': '5', // Field 5 is usually serial number in GLPI
+          //   'criteria[0][searchtype]': 'contains',
+          //   'criteria[0][value]': `^${serialNumber}$`,
+          // });
 
-          const searchResp = await axios.get(`${GLPI_INSTANCE}/search/Computer`, {
-            headers: {
-              'Content-Type': 'application/json',
-              'App-Token': GLPI_APP_TOKEN,
-              'Session-Token': sessionToken,
-            },
-            params,
-          });
+          // const searchResp = await axios.get(`${GLPI_INSTANCE}/search/Computer`, {
+          //   headers: {
+          //     'Content-Type': 'application/json',
+          //     'App-Token': GLPI_APP_TOKEN,
+          //     'Session-Token': sessionToken,
+          //   },
+          //   params,
+          // });
 
-          // Ensure exactly one computer is found in GLPI
-          if (searchResp.data.totalcount !== 1) {
-            return new Response('Computer not found or multiple found in GLPI', { ...CORS_HEADERS, status: 500 });
-          }
+          // // Ensure exactly one computer is found in GLPI
+          // if (searchResp.data.totalcount !== 1) {
+          //   return new Response('Computer not found or multiple found in GLPI', { ...CORS_HEADERS, status: 500 });
+          // }
 
-          // Update the computer state in GLPI to "Out of Service > Salvaged" (state ID 18)
-          const computerIdGLPI = searchResp.data.data[0][2];
-          await axios.put(`${GLPI_INSTANCE}/Computer/${computerIdGLPI}`, {
-            input: { states_id: 18 } // 18 is the ID for "Out of Service > Salvaged"
-          }, {
-            headers: {
-              "Content-Type": "application/json",
-              "App-Token": GLPI_APP_TOKEN,
-              "Session-Token": sessionToken,
-            },
-          });
+          // // Update the computer state in GLPI to "Out of Service > Salvaged" (state ID 18)
+          // const computerIdGLPI = searchResp.data.data[0][2];
+          // await axios.put(`${GLPI_INSTANCE}/Computer/${computerIdGLPI}`, {
+          //   input: { states_id: 18 } // 18 is the ID for "Out of Service > Salvaged"
+          // }, {
+          //   headers: {
+          //     "Content-Type": "application/json",
+          //     "App-Token": GLPI_APP_TOKEN,
+          //     "Session-Token": sessionToken,
+          //   },
+          // });
 
-          // Cleanup GLPI session
-          console.log('Cleaning up GLPI session...');
-          const cleanup = await cleanupGLPI(sessionToken);
-          console.log('Cleanup response:', cleanup.data);
+          // // Cleanup GLPI session
+          // console.log('Cleaning up GLPI session...');
+          // const cleanup = await cleanupGLPI(sessionToken);
+          // console.log('Cleanup response:', cleanup.data);
 
           // Remove MAC address from Clearpass
           if (macAddress && altMacAddress) {
