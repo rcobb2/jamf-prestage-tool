@@ -18,7 +18,8 @@ A lightweight tool to automate and customize the Jamf Prestage enrollment experi
    cd jamf-prestage-tool
    ```
 3. Add your own .env file, as shown below (see "Enviroment Variables" below)
-4. Configure the JAMF API (see "JAMF Setup" below)
+4. Copy & name your SSL certs as `server.cert` & `server.key`
+5. Configure the JAMF API (see "JAMF Setup" below)
 
 ## Usage
 1. Ensure your environment is properly configured.
