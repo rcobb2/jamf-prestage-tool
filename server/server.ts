@@ -389,7 +389,7 @@ const server: Bun.Server = Bun.serve({
           // First, wipe the device using JAMF API
           const jamfWipeResp = await wipeDevice(computerId);
           if (jamfWipeResp.status !== 200) {
-            return new Response(`Failed to wipe device on JAMF: ${jamfWipeResp.status} ${jamfWipeResp.body}`, { ...CORS_HEADERS, status: 500 });
+            return new Response(`Failed to wipe device on JAMF: ${jamfWipeResp.status} ${await jamfWipeResp.text()}`, { ...CORS_HEADERS, status: 500 });
           }
 
           // Get JAMF API token and retire (delete) the device from JAMF
