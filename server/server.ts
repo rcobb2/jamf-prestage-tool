@@ -317,7 +317,7 @@ const server: Bun.Server = Bun.serve({
                 const compRes = await axios.get<{
                   hardware: any; id: number; general: any
                 }>(
-                  `${JAMF_INSTANCE}/api/v1/computers-inventory/${id}?section=GENERAL`,
+                  `${JAMF_INSTANCE}/api/v1/computers-inventory/${id}?section=GENERAL&section=HARDWARE`,
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
 
@@ -334,6 +334,7 @@ const server: Bun.Server = Bun.serve({
                   name: general.name || 'N/A',
                   assetTag: general.assetTag || 'N/A',
                   macAddress: compRes.data?.hardware.macAddress || 'N/A',
+                  altMacAddress: compRes.data?.hardware?.altMacAddress || 'N/A',
                   enrollmentMethod: general.enrollmentMethod?.objectName || 'No enrollment method found',
                   serialNumber: serial_number,
                   currentPrestage: prestage.displayName,
@@ -378,9 +379,9 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/api/retiredevice/:computerId/:serialNumber/:macAddress": {
+    "/api/retiredevice/:computerId/:serialNumber/:macAddress/:altMacAddress": {
       async DELETE(req) {
-        const { computerId, serialNumber, macAddress } = req.params;
+        const { computerId, serialNumber, macAddress, altMacAddress } = req.params;
         console.log(`Retiring device with ID: ${computerId}`);
 
         // return new Response('Not yet implemented.', { ...CORS_HEADERS, status: 501 });
@@ -442,10 +443,12 @@ const server: Bun.Server = Bun.serve({
           console.log('Cleanup response:', cleanup.data);
 
           // Remove MAC address from Clearpass
-          if (macAddress) {
+          if (macAddress && altMacAddress) {
             console.log(`Deleting MAC address ${macAddress} from Clearpass...`);
             await deleteClearpassMAC(macAddress);
-            console.log(`MAC address ${macAddress} deleted from Clearpass`);
+
+            console.log(`Deleting MAC address ${altMacAddress} from Clearpass...`);
+            await deleteClearpassMAC(altMacAddress);
           }
 
           return new Response('Device retired successfully', { ...CORS_HEADERS, status: 200 });
