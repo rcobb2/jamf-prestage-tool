@@ -329,12 +329,13 @@ const server: Bun.Server = Bun.serve({
 
                 const general = compRes.data.general || {};
                 const preload = preloadRes.data.results[0] || {};
+
                 return {
                   computerId: compRes.data.id,
                   name: general.name || 'N/A',
                   assetTag: general.assetTag || 'N/A',
-                  macAddress: compRes.data?.hardware.macAddress || 'N/A',
-                  altMacAddress: compRes.data?.hardware?.altMacAddress || 'N/A',
+                  macAddress: compRes.data.hardware?.macAddress || 'N/A',
+                  altMacAddress: compRes.data.hardware?.altMacAddress || 'N/A',
                   enrollmentMethod: general.enrollmentMethod?.objectName || 'No enrollment method found',
                   serialNumber: serial_number,
                   currentPrestage: prestage.displayName,
@@ -389,7 +390,7 @@ const server: Bun.Server = Bun.serve({
         try {
           // Get JAMF API token and retire (delete) the device from JAMF
           const token = await getJAMFToken();
-          const jamfResp = await axios.delete(`${JAMF_INSTANCE}/api/v1/computer-inventory/${computerId}`, {
+          const jamfResp = await axios.delete(`${JAMF_INSTANCE}/api/v1/computers-inventory/${computerId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
 
@@ -454,7 +455,7 @@ const server: Bun.Server = Bun.serve({
           return new Response('Device retired successfully', { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
           const status = error?.response?.status || 500;
-          const message = error?.message || 'Error retiring device';
+          const message = error?.response?.data || error?.message || 'Error retiring device';
           return new Response(message, { ...CORS_HEADERS, status });
         }
       }
