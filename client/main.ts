@@ -15,6 +15,7 @@ type ComputerInfo = {
   email: string,
   building: string,
   username: string,
+  macAddress: string,
   serialNumber: string,
   currentPrestage: string,
   enrollmentMethod: string,
@@ -162,7 +163,7 @@ function createAlpineData() {
           return;
         }
 
-        await axios.delete(`/retiredevice/${current.computerId}`);
+        await axios.delete(`/retiredevice/${current.computerId}/${current.serialNumber}/${current.macAddress}`);
         this.errorMessage = '';
         this.successMessage = 'Device retired successfully.';
         this.dataList.splice(this.dataIndex, 1);
