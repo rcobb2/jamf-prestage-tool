@@ -52,6 +52,15 @@ const server: Bun.Server = Bun.serve({
           }
 
           const token = await utils.getJAMFToken();
+
+          // JAMF Bug: PUT is supposed to replace the prestage scope, but it acts like POST
+          // and adds the device to the prestage scope without removing existing devices.
+          // This is a temporary workaround to ensure the device is added correctly.
+          await axios.delete(`https://${SERVER_API_HOSTNAME}:${SERVER_API_PORT}/api/change-prestage/${prestageId}/${serialNumber}`)
+            .catch((error) => {
+              console.error(`Error removing prestage in adding prestage endpoint: ${error}`);
+            });
+
           const response = await axios.put(
             `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope`,
             { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
@@ -75,18 +84,21 @@ const server: Bun.Server = Bun.serve({
         try {
           const prestages = await utils.getPrestages();
           const prestage = prestages.find(p => p.displayName === prestageId);
+
           if (!prestage) {
             return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
           }
+
           const token = await utils.getJAMFToken();
           const response = await axios.post(
             `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
             { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
             { headers: { Authorization: `Bearer ${token}` } }
           );
+
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
-        } catch {
-          return new Response('Error removing device from prestage', { ...CORS_HEADERS, status: 500 });
+        } catch (error: any) {
+          return new Response(`Error removing device from prestage: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 500 });
         }
       }
     },
