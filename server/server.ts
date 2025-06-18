@@ -1,190 +1,21 @@
 import axios from "axios";
+import * as utils from "./utils.ts";
+import { CORS_HEADERS, type JAMFResponse } from "./utils.ts";
 import notFound from "/app/404.html";
 
 const {
-  CLEARPASS_INSTANCE,
-  CLEARPASS_CLIENT_ID,
-  CLEARPASS_CLIENT_SECRET,
-
   GLPI_INSTANCE,
   GLPI_APP_TOKEN,
-  GLPI_USER_TOKEN,
 
   JAMF_INSTANCE,
-  JAMF_CLIENT_ID,
-  JAMF_CLIENT_SECRET,
 
   SERVER_API_HOSTNAME,
   SERVER_API_PORT,
-  CLIENT_HOSTNAME,
 } = process.env;
-const tokenUrl = `${JAMF_INSTANCE}/api/oauth/token`;
 
 // Set default headers for axios
 axios.defaults.headers.common["Accept"] = "application/json";
 axios.defaults.headers.common["Content-Type"] = "application/json";
-
-const CORS_HEADERS: ResponseInit = {
-  headers: {
-    "Access-Control-Allow-Origin": `https://${CLIENT_HOSTNAME}`,
-    "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type, Accept, Authorization",
-    "Access-Control-Allow-Credentials": "false",
-    "Accept": "application/json",
-    "Content-Type": "application/json",
-    "Cache-Control": "no-cache",
-  },
-};
-
-type ComputerMatch = { id: number; serial_number: string; };
-
-type JAMFResponse = {
-  serialNumber: string;
-  currentPrestage: string;
-  computerId: number;
-  name: string;
-  assetTag: string;
-  enrollmentObjectName: string;
-  prestageId: number | null;
-  username: string | null;
-  email: string | null;
-  building: string | null;
-  room: string | null;
-  emailAddress: string | null;
-  buildingId?: number | null;
-  preloadId?: number | null;
-};
-
-// Get the access token using client credentials
-async function getJAMFToken(): Promise<string> {
-  const response = await axios.post(tokenUrl, {
-    grant_type: "client_credentials",
-    client_id: JAMF_CLIENT_ID,
-    client_secret: JAMF_CLIENT_SECRET,
-  }, {
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
-  });
-  return response.data.access_token;
-}
-
-// Function to get GLPI session token
-async function getGLPIToken() {
-  return await axios.get(`${GLPI_INSTANCE}/initSession/`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'App-Token': GLPI_APP_TOKEN,
-      'Authorization': `user_token ${GLPI_USER_TOKEN}`,
-    },
-  });
-}
-
-// Function to cleanup GLPI session
-async function cleanupGLPI(session_token: string) {
-  return await axios.get(`${GLPI_INSTANCE}/killSession/`, {
-    headers: {
-      'Content-Type': 'application/json',
-      'App-Token': GLPI_APP_TOKEN,
-      'Session-Token': session_token,
-    },
-  });
-}
-
-// Function to get Clearpass access token
-async function getClearpassToken() {
-  const clearpassResp = await axios.post(`${CLEARPASS_INSTANCE}/oauth`, {
-    grant_type: "client_credentials",
-    client_id: CLEARPASS_CLIENT_ID,
-    client_secret: CLEARPASS_CLIENT_SECRET,
-  });
-
-  if (clearpassResp.status !== 200) {
-    throw new Error(`Failed to retrieve Clearpass access token: ${clearpassResp.status} ${clearpassResp.data}`);
-  }
-
-  console.log(`Successfully retrieved Clearpass access token: ${clearpassResp.data.access_token}`);
-  return clearpassResp.data.access_token;
-}
-
-// Function to delete a MAC address from Clearpass
-async function deleteClearpassMAC(macAddress: string): Promise<any> {
-  const token = await getClearpassToken();
-
-  const response = await axios.delete(`${CLEARPASS_INSTANCE}/endpoint/mac-address/${macAddress}`, {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    }
-  });
-
-
-  console.log(`Successfully deleted MAC address ${macAddress} from Clearpass`);
-  return response.data;
-}
-
-// Function to match computers by serial number or name or id, etc.
-async function matchComputer(search: string): Promise<ComputerMatch[]> {
-  const token = await getJAMFToken();
-  const apiUrl = `${JAMF_INSTANCE}/JSSResource/computers/match/${search}`;
-  const response = await axios.get(apiUrl, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (response.data && response.data.computers && Array.isArray(response.data.computers)) {
-    return response.data.computers.map((item: any) => ({
-      id: item.id,
-      serial_number: item.serial_number
-    })) as ComputerMatch[];
-  }
-  throw new Error('Unexpected response format');
-}
-
-// Function to get all prestages & their IDs
-async function getPrestages(): Promise<{ id: number; displayName: string; versionLock: string }[]> {
-  const token = await getJAMFToken();
-  const apiUrl = `${JAMF_INSTANCE}/api/v3/computer-prestages?page=0&page-size=100&sort=id%3Adesc`;
-  const response = await axios.get<{ results: { id: number; displayName: string; versionLock?: string }[] }>(apiUrl, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  return response.data.results.map((prestage) => ({
-    id: prestage.id,
-    displayName: prestage.displayName,
-    versionLock: prestage.versionLock || 'N/A'
-  }));
-}
-
-// Function to get prestage assignments for a given serial number
-async function getPrestageAssignments(serialNumber: string): Promise<{ serialNumber: string; displayName: string }> {
-  const token = await getJAMFToken();
-  const apiUrl = `${JAMF_INSTANCE}/api/v2/computer-prestages/scope`;
-  const response = await axios.get<{ serialsByPrestageId: Record<string, number> }>(apiUrl, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const assignments = response.data.serialsByPrestageId;
-  const prestages = await getPrestages();
-  const prestageId = assignments[serialNumber];
-  if (prestageId) {
-    const prestage = prestages.find((p: { id: number }) => p.id === prestageId);
-    if (prestage) {
-      return { serialNumber, displayName: prestage.displayName };
-    }
-  }
-  return { serialNumber, displayName: 'Unassigned' };
-}
-
-async function wipeDevice(computerId: string): Promise<Response> {
-  try {
-    const token = await getJAMFToken();
-    const response = await axios.post(`${JAMF_INSTANCE}/api/v1/computer-inventory/${computerId}/erase`,
-      { pin: "123456" },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
-  } catch (error: any) {
-    const status = error?.response?.status;
-    const message = error?.response?.data || 'Error wiping device';
-
-    return new Response(JSON.stringify(message), { status: status });
-  }
-}
 
 // Main handler
 const server: Bun.Server = Bun.serve({
@@ -199,7 +30,7 @@ const server: Bun.Server = Bun.serve({
     "/api/prestages": {
       async GET() {
         try {
-          const prestages = await getPrestages();
+          const prestages = await utils.getPrestages();
           return new Response(JSON.stringify(prestages), { ...CORS_HEADERS, status: 200 });
         } catch {
           return new Response('Error fetching prestages', { ...CORS_HEADERS, status: 500 });
@@ -213,13 +44,14 @@ const server: Bun.Server = Bun.serve({
         console.log(`Adding device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
 
         try {
-          const prestages = await getPrestages();
-          const prestage = prestages.find(p => p.id === Number(prestageId));
+          const availiblePrestages = await utils.getPrestages();
+          const prestage = availiblePrestages.find(p => p.id === prestageId);
+
           if (!prestage) {
             return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
           }
 
-          const token = await getJAMFToken();
+          const token = await utils.getJAMFToken();
           const response = await axios.post(
             `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope`,
             { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
@@ -240,12 +72,12 @@ const server: Bun.Server = Bun.serve({
         console.log(`Removing device with serial number: ${serialNumber} from prestage: ${prestageId}`);
 
         try {
-          const prestages = await getPrestages();
+          const prestages = await utils.getPrestages();
           const prestage = prestages.find(p => p.displayName === prestageId);
           if (!prestage) {
             return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
           }
-          const token = await getJAMFToken();
+          const token = await utils.getJAMFToken();
           const response = await axios.post(
             `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
             { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
@@ -261,7 +93,7 @@ const server: Bun.Server = Bun.serve({
     "/api/buildings": {
       async GET() {
         try {
-          const token = await getJAMFToken();
+          const token = await utils.getJAMFToken();
           const apiUrl = `${JAMF_INSTANCE}/api/v1/buildings?page=0&page-size=100&sort=id%3Aasc`;
           const response = await axios.get<{ results: any[] }>(apiUrl, {
             headers: { Authorization: `Bearer ${token}` }
@@ -277,8 +109,8 @@ const server: Bun.Server = Bun.serve({
       async GET(req) {
         const { search } = req.params;
         try {
-          const computers = await matchComputer(search);
-          const token = await getJAMFToken();
+          const computers = await utils.matchComputer(search);
+          const token = await utils.getJAMFToken();
           let results: any[] = [];
 
           if (computers.length === 0) {
@@ -333,7 +165,7 @@ const server: Bun.Server = Bun.serve({
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
 
-                const prestage = await getPrestageAssignments(serial_number);
+                const prestage = await utils.getPrestageAssignments(serial_number);
                 const preloadRes = await axios.get<{ results: any[] }>(
                   `${JAMF_INSTANCE}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${serial_number}`,
                   { headers: { Authorization: `Bearer ${token}` } }
@@ -376,7 +208,7 @@ const server: Bun.Server = Bun.serve({
         const { computerId } = req.params;
         console.log(`Wiping device with ID: ${computerId}`);
 
-        return await wipeDevice(computerId)
+        return await utils.wipeDevice(computerId)
       }
     },
 
@@ -387,13 +219,13 @@ const server: Bun.Server = Bun.serve({
 
         try {
           // First, wipe the device using JAMF API
-          const jamfWipeResp = await wipeDevice(computerId);
+          const jamfWipeResp = await utils.wipeDevice(computerId);
           if (jamfWipeResp.status !== 200) {
             return new Response(`Failed to wipe device on JAMF: ${jamfWipeResp.status} ${await jamfWipeResp.text()}`, { ...CORS_HEADERS, status: 500 });
           }
 
           // Get JAMF API token and retire (delete) the device from JAMF
-          const token = await getJAMFToken();
+          const token = await utils.getJAMFToken();
           const jamfResp = await axios.delete(`${JAMF_INSTANCE}/api/v1/computers-inventory/${computerId}`, {
             headers: { Authorization: `Bearer ${token}` }
           });
@@ -403,7 +235,7 @@ const server: Bun.Server = Bun.serve({
           }
 
           // Start a GLPI session to update the device state
-          const glpiTokenResp = await getGLPIToken();
+          const glpiTokenResp = await utils.getGLPIToken();
           const sessionToken = glpiTokenResp.data.session_token;
           if (!sessionToken) {
             return new Response('Failed to get GLPI session token', { ...CORS_HEADERS, status: 500 });
@@ -451,10 +283,10 @@ const server: Bun.Server = Bun.serve({
           // Remove MAC address from Clearpass
           if (macAddress && altMacAddress) {
             console.log(`Deleting MAC address ${macAddress} from Clearpass...`);
-            await deleteClearpassMAC(macAddress);
+            await utils.deleteClearpassMAC(macAddress);
 
             console.log(`Deleting MAC address ${altMacAddress} from Clearpass...`);
-            await deleteClearpassMAC(altMacAddress);
+            await utils.deleteClearpassMAC(altMacAddress);
           }
 
           return new Response('Device retired successfully', { ...CORS_HEADERS, status: 200 });
@@ -490,7 +322,7 @@ const server: Bun.Server = Bun.serve({
           userAndLocation: { username, email: emailAddress, buildingId, room }
         };
         try {
-          const token = await getJAMFToken();
+          const token = await utils.getJAMFToken();
           const preloadApiUrl =
             preloadId && preloadId !== 'null'
               ? `${JAMF_INSTANCE}/api/v2/inventory-preload/records/${preloadId}`
