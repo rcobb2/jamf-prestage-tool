@@ -89,7 +89,7 @@ const server: Bun.Server = Bun.serve({
 
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
-          return new Response(`Error removing device from prestage: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: error.response?.status || 500 });
+          return new Response(`Error removing device from prestage: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 500 });
         }
       }
     },
@@ -306,11 +306,6 @@ const server: Bun.Server = Bun.serve({
       async PUT(req) {
         const body = await req.json() as JAMFResponse;
         const { preloadId, computerId } = req.params;
-
-        console.log(`Updating preload with ID: ${preloadId} for computer ID: ${computerId}`);
-        console.log(`Request body: ${JSON.stringify(body)}`);
-
-
         const { serialNumber, username, emailAddress, building, room, assetTag, buildingId } = body;
         const preloadData = {
           deviceType: 'Computer',
@@ -325,6 +320,8 @@ const server: Bun.Server = Bun.serve({
           general: { assetTag },
           userAndLocation: { username, email: emailAddress, buildingId, room }
         };
+        console.log(`Updating preload with ID: ${preloadId} for computer ID: ${computerId}`);
+
         try {
           const token = await utils.getJAMFToken();
           const preloadApiUrl =
@@ -344,13 +341,8 @@ const server: Bun.Server = Bun.serve({
           } catch {
             return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }), { ...CORS_HEADERS, status: 200 });
           }
-        } catch (err: any) {
-          const { response } = err;
-          if (response) {
-            return new Response(response.data, { status: response.status });
-          } else {
-            return new Response('Error updating preload/computer information', { ...CORS_HEADERS, status: 500 });
-          }
+        } catch (error: any) {
+          return new Response(`Error updating preload/computer information: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
         }
       }
     },
