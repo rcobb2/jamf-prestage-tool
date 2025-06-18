@@ -76,49 +76,41 @@ function createAlpineData() {
 
     async send() {
       try {
+        const original = this.dataListCopy[this.dataIndex];
         const current = this.dataList[this.dataIndex];
+
         if (!current) {
           this.errorMessage = 'No data to update.';
+          this.successMessage = '';
           return;
         }
 
-        const original = this.dataListCopy[this.dataIndex];
-
-        // Optionally add to prestage, if updateToPrestage is set
-        if (this.updateToPrestage !== 0) {
-          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`)
-            .catch((error: any) => {
-              console.error('Error updating prestage:', error.response?.data || error.message);
-              throw error;
-            });
+        // If no changes and no prestage/building update, do nothing
+        if (JSON.stringify(current) === JSON.stringify(original) && this.updateToPrestage === 0 && this.updateToBuilding === '') {
+          this.errorMessage = 'No changes to update.';
+          this.successMessage = '';
+          return;
         }
 
-        // Update preload
-        // Only update if data has changed
+        // Update building if needed
+        if (this.updateToBuilding !== '') {
+          current.building = this.updateToBuilding;
+        }
+
+        // Update prestage if needed
+        if (this.updateToPrestage !== 0) {
+          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`);
+        }
+
+        // Update preload if changed
         if (JSON.stringify(current) !== JSON.stringify(original)) {
+          // Ensure all null values are set to empty strings before sending
           for (const key in current) {
             if (current[key as keyof ComputerInfo] === null) {
               (current as any)[key] = '';
             }
           }
-
-          // If updateToBuilding is set, update the current.building
-          if (this.updateToBuilding !== '') {
-            current.building = this.updateToBuilding;
-          }
-
-          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current)
-            .catch((error: any) => {
-              console.error('Error updating preload:', error.response?.data || error.message);
-              throw error;
-            });
-        }
-
-        // Check if there are no changes to update
-        if (JSON.stringify(current) === JSON.stringify(original) && this.updateToPrestage === 0) {
-          this.errorMessage = 'No changes to update.';
-          this.successMessage = '';
-          return;
+          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current);
         }
 
         // Reset the updateToPrestage and updateToBuilding flags
@@ -129,7 +121,7 @@ function createAlpineData() {
         this.dataList[this.dataIndex] = { ...current };
         this.dataListCopy[this.dataIndex] = { ...current };
 
-        // Reset the error message
+        // Reset the error message and set success message
         this.errorMessage = '';
         this.successMessage = 'Data updated successfully.';
       } catch (error: any) {
