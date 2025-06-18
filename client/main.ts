@@ -99,7 +99,11 @@ function createAlpineData() {
 
         // Update prestage if needed
         if (this.updateToPrestage !== 0) {
-          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`);
+          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`)
+            .catch((error: any) => {
+              console.error('Error updating prestage:', error.response?.data || error.message);
+              throw error;
+            });
         }
 
         // Update preload if changed
@@ -110,7 +114,11 @@ function createAlpineData() {
               (current as any)[key] = '';
             }
           }
-          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current);
+          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current)
+            .catch((error: any) => {
+              console.error('Error updating preload:', error.response?.data || error.message);
+              throw error;
+            });
         }
 
         // Reset the updateToPrestage and updateToBuilding flags
