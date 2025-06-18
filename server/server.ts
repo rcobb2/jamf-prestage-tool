@@ -89,7 +89,7 @@ const server: Bun.Server = Bun.serve({
 
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
-          return new Response(`Error removing device from prestage: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 500 });
+          return new Response(`Error removing device from prestage: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: error.response?.status || 500 });
         }
       }
     },
