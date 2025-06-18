@@ -52,18 +52,19 @@ const server: Bun.Server = Bun.serve({
           }
 
           const token = await utils.getJAMFToken();
-          const response = await axios.post(
+          const response = await axios.put(
             `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope`,
             { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
             { headers: { Authorization: `Bearer ${token}` } }
           );
+
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
           const status = error?.response?.status;
           if (status === 400) {
-            return new Response('Please remove from current prestage before adding', { ...CORS_HEADERS, status: 400 });
+            return new Response(`Please remove from current prestage before adding: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 400 });
           }
-          return new Response('Error adding device to prestage', { ...CORS_HEADERS, status: 500 });
+          return new Response(`Error adding device to prestage: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 500 });
         }
       },
 
