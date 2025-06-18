@@ -99,9 +99,18 @@ function createAlpineData() {
 
         // Update prestage if needed
         if (this.updateToPrestage !== 0) {
+          // JAMF Bug: PUT is supposed to replace the prestage scope, but it acts like POST
+          // and adds the device to the prestage scope without removing existing devices.
+          // This is a temporary workaround to ensure the device is added correctly.
+          await axios.delete(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`)
+            .catch((error: any) => {
+              // Ignore any error, as the device may not be in the prestage scope
+              console.error(`Error removing prestage: ${error.response?.data || error.message}`);
+            });
+
           await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`)
             .catch((error: any) => {
-              console.error('Error updating prestage:', error.response?.data || error.message);
+              console.error(`Error updating prestage: ${error.response?.data || error.message}`);
               throw error;
             });
         }
@@ -116,7 +125,7 @@ function createAlpineData() {
           }
           await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current)
             .catch((error: any) => {
-              console.error('Error updating preload:', error.response?.data || error.message);
+              console.error(`Error updating preload: ${error.response?.data || error.message}`);
               throw error;
             });
         }
