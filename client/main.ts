@@ -85,44 +85,34 @@ function createAlpineData() {
           return;
         }
 
-        // If no changes and no prestage/building update, do nothing
-        if (JSON.stringify(current) === JSON.stringify(original) && this.updateToPrestage === 0 && this.updateToBuilding === '') {
+        const hasChanges = JSON.stringify(current) !== JSON.stringify(original);
+        const hasPrestageUpdate = this.updateToPrestage !== 0;
+        const hasBuildingUpdate = this.updateToBuilding !== '';
+
+        if (!hasChanges && !hasPrestageUpdate && !hasBuildingUpdate) {
           this.errorMessage = 'No changes to update.';
           this.successMessage = '';
           return;
         }
 
-        // Update building if needed
-        if (this.updateToBuilding !== '') {
+        if (hasBuildingUpdate) {
           current.building = this.updateToBuilding;
         }
 
-        // Update prestage if needed
-        if (this.updateToPrestage !== 0) {
+        if (hasPrestageUpdate) {
           // JAMF Bug: PUT is supposed to replace the prestage scope, but it acts like POST
           // and adds the device to the prestage scope without removing existing devices.
           // This is a temporary workaround to ensure the device is added correctly.
-          await axios.delete(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`)
-            .catch((error: any) => {
-              // Ignore any error, as the device may not be in the prestage scope
-              console.error(`Error removing prestage: ${error.response?.data || error.message}`);
-            });
-
-          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`)
-            .catch((error: any) => {
-              console.error(`Error updating prestage: ${error.response?.data || error.message}`);
-              throw error;
-            });
+          await axios.delete(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`).catch(() => { });
+          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`);
         }
 
-        // Update preload if changed
-        if (JSON.stringify(current) !== JSON.stringify(original)) {
-          // Ensure all null values are set to empty strings before sending
-          for (const key in current) {
+        if (hasChanges) {
+          Object.keys(current).forEach(key => {
             if (current[key as keyof ComputerInfo] === null) {
               (current as any)[key] = '';
             }
-          }
+          });
           await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current)
             .catch((error: any) => {
               console.error(`Error updating preload: ${error.response?.data || error.message}`);
@@ -130,20 +120,19 @@ function createAlpineData() {
             });
         }
 
-        // Reset the updateToPrestage and updateToBuilding flags
+        // Reset update fields
         this.updateToPrestage = 0;
         this.updateToBuilding = '';
 
-        // Update the dataList and dataListCopy
+        // Update data lists with modified data
         this.dataList[this.dataIndex] = { ...current };
         this.dataListCopy[this.dataIndex] = { ...current };
 
-        // Reset the error message and set success message
+        // Clear errors and set success message
         this.errorMessage = '';
         this.successMessage = 'Data updated successfully.';
       } catch (error: any) {
         this.errorMessage = `An error occurred while sending data. Error: ${error.response?.status ?? 'unknown'}`;
-        this.successMessage = '';
       }
     },
 
