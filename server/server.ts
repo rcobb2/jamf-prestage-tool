@@ -216,10 +216,13 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
+    // If you want to retire a device, you need to implement your own logic. Otherwise, uncomment the 'Not Implemented' response.
     "/api/retiredevice/:computerId/:serialNumber/:macAddress/:altMacAddress": {
       async DELETE(req) {
         const { computerId, serialNumber, macAddress, altMacAddress } = req.params;
         console.log(`Retiring device with ID: ${computerId}`);
+
+        // return new Response('Retiring device is not implemented.', { ...CORS_HEADERS, status: 501 });
 
         try {
           // First, wipe the device using JAMF API
