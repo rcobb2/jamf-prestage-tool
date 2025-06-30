@@ -1,2 +1,3 @@
 - [ ] Add JWT to auth API
 - [ ] Minor cosmetic improvements
+- [ ] Add some screenshots to the README
