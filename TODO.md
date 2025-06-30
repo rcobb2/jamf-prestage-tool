@@ -1,0 +1,2 @@
+- [ ] Add JWT to auth API
+- [ ] Minor cosmetic improvements
