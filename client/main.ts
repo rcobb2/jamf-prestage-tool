@@ -113,7 +113,7 @@ function createAlpineData() {
               (current as any)[key] = '';
             }
           });
-          await axios.put(`/update-preload/${current.preloadId}/${current.computerId}`, current)
+          await axios.put(`/update-info/${current.preloadId}/${current.computerId}`, current)
             .catch((error: any) => {
               console.error(`Error updating preload: ${error.response?.data || error.message}`);
               throw error;

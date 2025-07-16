@@ -305,7 +305,7 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/api/update-preload/:preloadId/:computerId": {
+    "/api/update-info/:preloadId/:computerId": {
       async PUT(req) {
         const body = await req.json() as JAMFResponse;
         const { preloadId, computerId } = req.params;
