@@ -328,10 +328,10 @@ const server: Bun.Server = Bun.serve({
         try {
           const token = await utils.getJAMFToken();
           const preloadApiUrl =
-            preloadId && preloadId !== 'null'
+            preloadId && preloadId !== 'undefined'
               ? `${JAMF_INSTANCE}/api/v2/inventory-preload/records/${preloadId}`
               : `${JAMF_INSTANCE}/api/v2/inventory-preload/records`;
-          const preloadMethod = preloadId && preloadId !== 'null' ? 'put' : 'post';
+          const preloadMethod = preloadId && preloadId !== 'undefined' ? 'put' : 'post';
           const preloadResponse = await (axios as any)[preloadMethod](preloadApiUrl, preloadData, {
             headers: { Authorization: `Bearer ${token}` }
           });
