@@ -104,8 +104,8 @@ function createAlpineData() {
           // JAMF Bug: PUT is supposed to replace the prestage scope, but it acts like POST
           // and adds the device to the prestage scope without removing existing devices.
           // This is a temporary workaround to ensure the device is added correctly.
-          await axios.delete(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`).catch(() => { });
-          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`);
+          await axios.delete(`/change-prestage/${encodeURIComponent(this.updateToPrestage)}/${current.serialNumber}`).catch(() => { });
+          await axios.post(`/change-prestage/${encodeURIComponent(this.updateToPrestage)}/${current.serialNumber}`);
         }
 
         if (hasChanges) {
@@ -179,7 +179,7 @@ function createAlpineData() {
           return;
         }
 
-        await axios.delete(`/retiredevice/${current.computerId}/${current.serialNumber}/${current.macAddress}/${current.altMacAddress}`)
+        await axios.delete(`/retiredevice/${current.computerId}/${(current.serialNumber)}/${current.macAddress}/${current.altMacAddress}`)
           .catch((error: any) => {
             console.error('Error retiring device:', error.response?.data || error.message);
             throw error;
