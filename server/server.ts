@@ -144,20 +144,14 @@ const server: Bun.Server = Bun.serve({
                 );
                 const preload = preloadRes.data.results[0] || null;
 
-                // If preload is empty, return early with 404
-                if (!preload) {
-                  console.log(`No preload found for device with serial number: ${device.serialNumber}`);
-                  return new Response('No computers found', { ...CORS_HEADERS, status: 404 });
-                }
-
                 return {
                   assetTag: 'N/A',
                   serialNumber: device.serialNumber,
-                  preloadId: preload.id,
-                  username: preload.username,
-                  email: preload.emailAddress,
-                  building: preload.building,
-                  room: preload.room,
+                  preloadId: preload?.id || 'N/A',
+                  username: preload?.username || 'N/A',
+                  email: preload?.emailAddress || 'N/A',
+                  building: preload?.building || 'N/A',
+                  room: preload?.room || 'N/A',
                 };
               })
             );
@@ -204,8 +198,8 @@ const server: Bun.Server = Bun.serve({
           } else {
             return new Response(JSON.stringify(results), { ...CORS_HEADERS, status: 200 });
           }
-        } catch {
-          return new Response('Error fetching data', { ...CORS_HEADERS, status: 500 });
+        } catch (error: any) {
+          return new Response(`${error.message || 'Unknown error'}`, { ...CORS_HEADERS, status: 500 });
         }
       }
     },
