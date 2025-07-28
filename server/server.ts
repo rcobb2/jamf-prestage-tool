@@ -325,13 +325,18 @@ const server: Bun.Server = Bun.serve({
         try {
           const token = await utils.getJAMFToken();
           const preloadApiUrl =
-            preloadId && preloadId !== 'undefined'
-              ? `${JAMF_INSTANCE}/api/v2/inventory-preload/records/${preloadId}`
-              : `${JAMF_INSTANCE}/api/v2/inventory-preload/records`;
-          const preloadMethod = preloadId && preloadId !== 'undefined' ? 'put' : 'post';
-          const preloadResponse = await (axios as any)[preloadMethod](preloadApiUrl, preloadData, {
+            preloadId === 'undefined'
+              ? `${JAMF_INSTANCE}/api/v2/inventory-preload/records`
+              : `${JAMF_INSTANCE}/api/v2/inventory-preload/records/${preloadId}`;
+          const preloadMethod =
+            preloadId === 'undefined'
+              ? 'post' // If preloadId is not defined, create a new preload record
+              : 'put'; // If preloadId is defined, update the existing record
+
+          const preloadResponse = await axios[preloadMethod](preloadApiUrl, preloadData, {
             headers: { Authorization: `Bearer ${token}` }
           });
+
           try {
             const computerApiUrl = `${JAMF_INSTANCE}/api/v1/computers-inventory-detail/${computerId}`;
             const computerResponse = await axios.patch(computerApiUrl, computerData, {
