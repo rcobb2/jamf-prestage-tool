@@ -215,7 +215,7 @@ function fetchPrestages() {
 
 function fetchBuildings() {
   return {
-    buildings: [],
+    buildings: [] as Array<{ name: string; id: string; }>,
 
     async init() {
       const response: AxiosResponse = await axios.get(`/buildings`)
