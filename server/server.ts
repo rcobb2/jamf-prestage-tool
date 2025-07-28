@@ -142,9 +142,11 @@ const server: Bun.Server = Bun.serve({
                   `${JAMF_INSTANCE}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${device.serialNumber}`,
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
-                const preload = preloadRes.data.results[0] || {};
+                const preload = preloadRes.data.results[0] || null;
+
                 // If preload is empty, return early with 404
-                if (!preload || Object.keys(preload).length === 0) {
+                if (!preload) {
+                  console.log(`No preload found for device with serial number: ${device.serialNumber}`);
                   return new Response('No computers found', { ...CORS_HEADERS, status: 404 });
                 }
 
@@ -160,6 +162,7 @@ const server: Bun.Server = Bun.serve({
               })
             );
           } else {
+            // If computers found, fetch their details
             results = await Promise.all(
               computers.map(async ({ id, serial_number }) => {
                 const compRes = await axios.get<{
