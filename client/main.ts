@@ -124,7 +124,7 @@ function createAlpineData() {
 
         // Reset update fields
         this.updateToPrestage = 0;
-        this.updateToBuilding = '';
+        // this.updateToBuilding = '';
 
         // Update data lists with modified data
         this.dataList[this.dataIndex] = { ...current };
@@ -132,7 +132,7 @@ function createAlpineData() {
 
         // Clear errors and set success message
         this.errorMessage = '';
-        this.successMessage = 'Data updated successfully.';
+        this.successMessage = hasChanges ? 'Data updated successfully.' : '';
       } catch (error: any) {
         this.errorMessage = `An error occurred while sending data. Error: ${error.response?.status ?? 'unknown'}`;
       }
