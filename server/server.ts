@@ -148,6 +148,7 @@ const server: Bun.Server = Bun.serve({
                   assetTag: preload?.assetTag || 'N/A',
                   serialNumber: device.serialNumber,
                   preloadId: preload?.id || 'N/A',
+                  username: preload?.username || null,
                   building: preload?.building || 'N/A',
                   room: preload?.room || 'N/A',
                 };
