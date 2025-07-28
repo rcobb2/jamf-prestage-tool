@@ -145,11 +145,9 @@ const server: Bun.Server = Bun.serve({
                 const preload = preloadRes.data.results[0] || null;
 
                 return {
-                  assetTag: 'N/A',
+                  assetTag: preload?.assetTag || 'N/A',
                   serialNumber: device.serialNumber,
                   preloadId: preload?.id || 'N/A',
-                  username: preload?.username || 'N/A',
-                  email: preload?.emailAddress || 'N/A',
                   building: preload?.building || 'N/A',
                   room: preload?.room || 'N/A',
                 };
@@ -305,7 +303,8 @@ const server: Bun.Server = Bun.serve({
     "/api/update-info/:preloadId/:computerId": {
       async PUT(req) {
         const body = await req.json() as JAMFResponse;
-        const { preloadId, computerId } = req.params;
+        const preloadId = decodeURIComponent(req.params.preloadId);
+        const computerId = decodeURIComponent(req.params.computerId);
         const { serialNumber, username, emailAddress, building, room, assetTag, buildingId } = body;
         const preloadData = {
           deviceType: 'Computer',
@@ -325,11 +324,11 @@ const server: Bun.Server = Bun.serve({
         try {
           const token = await utils.getJAMFToken();
           const preloadApiUrl =
-            preloadId === 'undefined'
-              ? `${JAMF_INSTANCE}/api/v2/inventory-preload/records`
-              : `${JAMF_INSTANCE}/api/v2/inventory-preload/records/${preloadId}`;
+            preloadId === 'undefined' || preloadId === 'N/A'
+              ? `${JAMF_INSTANCE}/api/v2/inventory-preload/records` // Create new preload record
+              : `${JAMF_INSTANCE}/api/v2/inventory-preload/records/${preloadId}`; // Update existing preload record
           const preloadMethod =
-            preloadId === 'undefined'
+            preloadId === 'undefined' || preloadId === 'N/A'
               ? 'post' // If preloadId is not defined, create a new preload record
               : 'put'; // If preloadId is defined, update the existing record
 
@@ -337,14 +336,17 @@ const server: Bun.Server = Bun.serve({
             headers: { Authorization: `Bearer ${token}` }
           });
 
+          if (computerId === 'undefined' || computerId === 'N/A') {
+            return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null }), { ...CORS_HEADERS, status: 200 });
+          }
+
           try {
-            const computerApiUrl = `${JAMF_INSTANCE}/api/v1/computers-inventory-detail/${computerId}`;
-            const computerResponse = await axios.patch(computerApiUrl, computerData, {
+            const computerResponse = await axios.patch(`${JAMF_INSTANCE}/api/v1/computers-inventory-detail/${computerId}`, computerData, {
               headers: { Authorization: `Bearer ${token}` }
             });
             return new Response(JSON.stringify({ preload: preloadResponse.data, computer: computerResponse.data }), { ...CORS_HEADERS, status: 200 });
           } catch {
-            return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }), { ...CORS_HEADERS, status: 200 });
+            return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }), { ...CORS_HEADERS, status: 500 });
           }
         } catch (error: any) {
           return new Response(`Error updating preload/computer information: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
