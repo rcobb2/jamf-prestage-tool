@@ -55,6 +55,7 @@ function createAlpineData() {
         const response = await axios.get(`/data/${this.searchData}`)
           .catch((error: any) => {
             console.error('Error fetching data:', error.response?.data || error.message);
+            this.errorMessage = `An error occurred while searching for data. Error: ${error.response?.status ?? 'unknown'}`;
             throw error;
           });
 
