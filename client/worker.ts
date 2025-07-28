@@ -28,4 +28,5 @@ const server: Bun.Server = Bun.serve({
   },
 });
 
+console.log(`Bun version: ${Bun.version_with_sha}`);
 console.log(`Client listening on ${server.url}`);
