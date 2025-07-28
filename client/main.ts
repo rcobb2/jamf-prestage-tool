@@ -63,6 +63,7 @@ function createAlpineData() {
         this.dataListCopy = JSON.parse(JSON.stringify(this.dataList));
         this.dataIndex = 0;
         this.errorMessage = '';
+        this.successMessage = '';
       } catch (error: any) {
         if (error.response && error.response.status === 404) {
           this.errorMessage = `No computer found for: ${this.searchData}`;
