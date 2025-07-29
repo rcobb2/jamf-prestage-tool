@@ -1,8 +1,11 @@
 /// <reference lib="dom" />
 import Alpine from 'alpinejs';
+import AlpineFocus from "@alpinejs/focus";
+import AlpinePersist from "@alpinejs/persist";
 import axios, { type AxiosResponse } from 'axios';
 import AzureAuth from "./azure-auth.ts";
 
+// Set up axios defaults
 const apiURL = `https://${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}/api`;
 axios.defaults.baseURL = apiURL;
 
@@ -233,9 +236,15 @@ function fetchBuildings() {
 // @ts-ignore
 window.Alpine = Alpine;
 
+// Register Alpine components
 Alpine.data('AzureAuth', AzureAuth);
 Alpine.data('FetchBuildings', fetchBuildings);
 Alpine.data('FetchPrestages', fetchPrestages);
 Alpine.data('AlpineData', createAlpineData);
 
+// Import Alpine plugins
+Alpine.plugin(AlpineFocus);
+Alpine.plugin(AlpinePersist);
+
+// Start Alpine.js
 Alpine.start();

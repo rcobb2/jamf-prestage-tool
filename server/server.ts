@@ -150,7 +150,7 @@ const server: Bun.Server = Bun.serve({
                   preloadId: preload?.id || 'N/A',
                   username: preload?.username || null,
                   building: preload?.building || 'N/A',
-                  room: preload?.room || 'N/A',
+                  room: preload?.room || null,
                 };
               })
             );

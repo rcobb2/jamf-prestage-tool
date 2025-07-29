@@ -3,6 +3,8 @@
   "module": "server.ts",
   "devDependencies": {
     "@types/alpinejs": "^3.13.11",
+    "@types/alpinejs__focus": "^3.13.4",
+    "@types/alpinejs__persist": "^3.13.4",
     "@types/bun": "latest"
   },
   "peerDependencies": {
@@ -14,6 +16,8 @@
   },
   "type": "module",
   "dependencies": {
+    "@alpinejs/focus": "^3.14.9",
+    "@alpinejs/persist": "^3.14.9",
     "@azure/msal-browser": "^4.16.0",
     "alpinejs": "^3.14.9",
     "axios": "^1.11.0"
