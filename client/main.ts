@@ -144,7 +144,7 @@ function createAlpineData() {
 
         // Clear errors and set success message
         this.errorMessage = '';
-        this.successMessage = hasChanges ? 'Data updated successfully.' : '';
+        this.successMessage = hasChanges || hasPrestageUpdate || hasBuildingUpdate ? 'Data updated successfully.' : '';
       } catch (error: any) {
         this.errorMessage = `An error occurred while sending data. Error: ${error.response?.status ?? 'unknown'}`;
       }
