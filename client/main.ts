@@ -252,7 +252,6 @@ Alpine.data('FetchPrestages', fetchPrestages);
 Alpine.data('AlpineData', createAlpineData);
 
 // Import Alpine plugins
-Alpine.plugin(AlpineFocus);
 Alpine.plugin(AlpinePersist);
 
 // Start Alpine.js
