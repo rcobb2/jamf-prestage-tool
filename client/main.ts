@@ -27,7 +27,7 @@ type ComputerInfo = {
 
 function createAlpineData() {
   return {
-    theme: process.env.THEME ?? 'dim',
+    theme: Alpine.$persist(process.env.THEME ?? 'dim'),
     searchData: '',
     errorMessage: '',
     successMessage: '',
