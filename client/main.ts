@@ -117,7 +117,7 @@ function createAlpineData() {
           // JAMF Bug: PUT is supposed to replace the prestage scope, but it acts like POST
           // and adds the device to the prestage scope without removing existing devices.
           // This is a temporary workaround to ensure the device is added correctly.
-          await axios.delete(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`).catch(() => { });
+          await axios.delete(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`).catch(() => { }); // Silently ignore if it fails (moslty because device is not already in prestage)
           await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`);
         }
 
@@ -135,7 +135,7 @@ function createAlpineData() {
         }
 
         // Reset update fields
-        this.updateToPrestage = 0;
+        // this.updateToPrestage = 0;
         // this.updateToBuilding = '';
 
         // Update data lists with modified data
