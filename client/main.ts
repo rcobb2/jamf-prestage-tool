@@ -1,6 +1,5 @@
 /// <reference lib="dom" />
 import Alpine from 'alpinejs';
-import AlpineFocus from "@alpinejs/focus";
 import AlpinePersist from "@alpinejs/persist";
 import axios, { type AxiosResponse } from 'axios';
 import AzureAuth from "./azure-auth.ts";
@@ -64,9 +63,19 @@ function createAlpineData() {
 
         this.dataList = response.data;
         this.dataListCopy = JSON.parse(JSON.stringify(this.dataList));
+
+        // Reset pagination and messages
         this.dataIndex = 0;
         this.errorMessage = '';
         this.successMessage = '';
+
+        // Focus on the next non-disabled input element with the class 'datafield-input'
+        Alpine.nextTick(() => {
+          const nextInput = document.querySelector('.datafield-input:not(:disabled)');
+          if (nextInput instanceof HTMLInputElement) {
+            nextInput.focus();
+          }
+        });
       } catch (error: any) {
         if (error.response && error.response.status === 404) {
           this.errorMessage = `No computer found for: ${this.searchData}`;

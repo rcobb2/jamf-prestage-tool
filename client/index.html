@@ -98,7 +98,7 @@
             <template x-for="(value, name) in currentData" :key="name">
               <span class="flex justify-between items-center w-full" x-id="['data-field']">
                 <label class="label text-base" x-text="name" :for="$id('data-field')"></label>
-                <input type="text" class="input" @keydown.enter="send" @input="currentData[name] = $event.target.value" :id="$id('data-field')" :value="value" :disabled="['computerId', 'enrollmentMethod', 'serialNumber', 'preloadId', 'name', 'currentPrestage', 'building', 'macAddress', 'altMacAddress'].includes(name)" />
+                <input type="text" class="input datafield-input" @keydown.enter="send" @input="currentData[name] = $event.target.value" :id="$id('data-field')" :value="value" :disabled="['computerId', 'enrollmentMethod', 'serialNumber', 'preloadId', 'name', 'currentPrestage', 'building', 'macAddress', 'altMacAddress'].includes(name)" />
               </span>
             </template>
 
