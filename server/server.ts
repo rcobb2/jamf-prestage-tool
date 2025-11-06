@@ -1,7 +1,8 @@
 import axios from "axios";
 import * as utils from "./utils.ts";
 import { CORS_HEADERS, type JAMFResponse } from "./utils.ts";
-import notFound from "/app/404.html";
+
+const notFound = Bun.file("404.html");
 
 const {
   GLPI_INSTANCE,
@@ -361,7 +362,7 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/*": notFound,
+    "/*": () => new Response(notFound, { headers: { "Content-Type": "text/html" }, status: 404 }),
   },
 
   error() {

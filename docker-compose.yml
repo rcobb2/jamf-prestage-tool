@@ -8,6 +8,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./client:/app/client
       - ./server.cert:/app/server.cert:ro
       - ./server.key:/app/server.key:ro
     ports:
@@ -15,7 +16,8 @@ services:
     develop:
       watch:
         - path: ./client
-          action: rebuild
+          action: sync
+          target: /app/client
 
   server:
     network_mode: "host"
@@ -26,6 +28,7 @@ services:
     env_file:
       - .env
     volumes:
+      - ./server:/app
       - ./server.cert:/app/server.cert:ro
       - ./server.key:/app/server.key:ro
     ports:
@@ -33,4 +36,5 @@ services:
     develop:
       watch:
         - path: ./server
-          action: rebuild
+          action: sync
+          target: /app

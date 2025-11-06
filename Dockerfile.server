@@ -13,4 +13,4 @@ COPY server/. .
 
 EXPOSE 8443
 
-CMD [ "bun", "run", "server.ts" ]
+CMD [ "bun", "run", "--hot", "server.ts" ]

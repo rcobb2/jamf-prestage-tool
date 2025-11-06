@@ -30,13 +30,13 @@ function createAlpineData() {
     searchData: '',
     errorMessage: '',
     successMessage: '',
-    updateToBuilding: '',
     dataList: [] as ComputerInfo[],
     dataListCopy: [] as ComputerInfo[],
     dataIndex: 0,
     totalPages: 0,
     currentPage: 0,
     updateToPrestage: 0,
+    showPrestageDropdown: false,
 
     get currentData() {
       return this.dataList[this.dataIndex] || {};
@@ -68,6 +68,7 @@ function createAlpineData() {
         this.dataIndex = 0;
         this.errorMessage = '';
         this.successMessage = '';
+        this.showPrestageDropdown = false;
 
         // Focus on the next non-disabled input element with the class 'datafield-input'
         Alpine.nextTick(() => {
@@ -101,16 +102,11 @@ function createAlpineData() {
 
         const hasChanges = JSON.stringify(current) !== JSON.stringify(original);
         const hasPrestageUpdate = this.updateToPrestage !== 0;
-        const hasBuildingUpdate = this.updateToBuilding !== '';
 
-        if (!hasChanges && !hasPrestageUpdate && !hasBuildingUpdate) {
+        if (!hasChanges && !hasPrestageUpdate) {
           this.errorMessage = 'No changes to update.';
           this.successMessage = '';
           return;
-        }
-
-        if (hasBuildingUpdate) {
-          current.building = this.updateToBuilding;
         }
 
         if (hasPrestageUpdate) {
@@ -144,7 +140,7 @@ function createAlpineData() {
 
         // Clear errors and set success message
         this.errorMessage = '';
-        this.successMessage = hasChanges || hasPrestageUpdate || hasBuildingUpdate ? 'Data updated successfully.' : '';
+        this.successMessage = hasChanges || hasPrestageUpdate ? 'Data updated successfully.' : '';
       } catch (error: any) {
         this.errorMessage = `An error occurred while sending data. Error: ${error.response?.status ?? 'unknown'}`;
       }

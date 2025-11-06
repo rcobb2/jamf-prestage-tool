@@ -18,7 +18,7 @@ RUN mv /app/client/*.ts /app/.
 EXPOSE 443
 
 # Start the client server
-CMD [ "bun", "run", "worker.ts" ]
+CMD [ "bun", "run", "--hot", "worker.ts" ]
 
 # Should result in the following directory structure:
 # /app

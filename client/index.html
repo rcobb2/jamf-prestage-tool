@@ -96,36 +96,55 @@
 
             <!-- JSON key/value fields -->
             <template x-for="(value, name) in currentData" :key="name">
-              <span class="flex justify-between items-center w-full" x-id="['data-field']">
-                <label class="label text-base" x-text="name" :for="$id('data-field')"></label>
-                <input type="text" class="input datafield-input" @keydown.enter="send" @input="currentData[name] = $event.target.value" :id="$id('data-field')" :value="value" :disabled="['computerId', 'enrollmentMethod', 'serialNumber', 'preloadId', 'name', 'currentPrestage', 'building', 'macAddress', 'altMacAddress'].includes(name)" />
+              <span class="flex justify-between items-center w-full" x-id="['data-field']" x-show="name !== 'currentPrestage'">
+                <label class="label text-base" :for="$id('data-field')" x-text="{
+                  computerId: 'Computer ID',
+                  assetTag: 'Asset Tag',
+                  preloadId: 'Preload ID',
+                  name: 'Name',
+                  room: 'Room',
+                  email: 'Email',
+                  building: 'Building',
+                  username: 'Username',
+                  macAddress: 'Primary MAC Address',
+                  altMacAddress: 'Secondary MAC Address',
+                  serialNumber: 'Serial Number',
+                  enrollmentMethod: 'Last Enrollment Method',
+                }[name] || name"></label>
+                <template x-if="name === 'building'">
+                  <div x-data="FetchBuildings">
+                    <select class="select" name="buildingDropdown" x-model="currentData.building">
+                      <option value="" selected disabled>Select Building</option>
+                      <template x-for="building in buildings" :key="building.id">
+                        <option :value="building.name" x-text="building.name"></option>
+                      </template>
+                    </select>
+                  </div>
+                </template>
+                <template x-if="name !== 'building'">
+                  <input type="text" class="input datafield-input" @keydown.enter="send" @input="currentData[name] = $event.target.value" :id="$id('data-field')" :value="value" :disabled="['computerId', 'enrollmentMethod', 'serialNumber', 'preloadId', 'name', 'macAddress', 'altMacAddress'].includes(name)" />
+                </template>
               </span>
             </template>
 
-            <!-- Building Dropdown -->
-            <section class="mt-4">
-              <span class="flex justify-between items-center w-full" x-data="FetchBuildings">
-                <label class="label text-base">Building</label>
-                <select class="select" name="buildingDropdown" @change="updateToBuilding = $event.target.value">
-                  <option value="" selected disabled>Select Building</option>
-                  <template x-for="building in buildings" :key="building.id">
-                    <option :value="building.name" x-text="building.name"></option>
-                  </template>
-                </select>
-              </span>
-            </section>
-
             <!-- Prestage Dropdown -->
-            <section>
-              <span class="flex justify-between items-center w-full" x-data="FetchPrestages">
+            <section x-data="FetchPrestages">
+              <div x-show="!showPrestageDropdown" class="flex justify-between items-center w-full">
                 <label class="label text-base">Prestage</label>
-                <select class="select" name="prestageDropdown" @change="updateToPrestage = $event.target.value">
+                <div class="flex items-center gap-2">
+                  <p class="text-base" x-text="currentData.currentPrestage"></p>
+                  <button class="btn btn-sm btn-soft" @click="showPrestageDropdown = true">Change</button>
+                </div>
+              </div>
+              <div x-show="showPrestageDropdown" class="flex justify-between items-center w-full">
+                <label class="label text-base">Prestage</label>
+                <select class="select" name="prestageDropdown" @change="updateToPrestage = $event.target.value; showPrestageDropdown = false">
                   <option value="" selected disabled>Select Prestage</option>
                   <template x-for="prestage in prestages" :key="prestage.id">
                     <option :value="prestage.id" x-text="prestage.displayName"></option>
                   </template>
                 </select>
-              </span>
+              </div>
             </section>
 
             <!-- Only show error message if there is one -->
