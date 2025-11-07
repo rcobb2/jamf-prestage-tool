@@ -1,6 +1,3 @@
-import notFound from "/app/404.html";
-import homepage from "/app/client/index.html";
-
 await Bun.build({
   entrypoints: ['./main.ts'],
   outdir: './client/',
@@ -14,7 +11,7 @@ await Bun.build({
 
 console.log('Client build completed successfully.');
 
-const server: Bun.Server = Bun.serve({
+const server = Bun.serve({
   development: false,
   hostname: process.env.CLIENT_HOSTNAME || "localhost",
   port: process.env.CLIENT_PORT || 3000,
@@ -22,9 +19,32 @@ const server: Bun.Server = Bun.serve({
     key: Bun.file("server.key"),
     cert: Bun.file("server.cert"),
   },
-  routes: {
-    "/": homepage,
-    "/*": notFound,
+  async fetch(req) {
+    const url = new URL(req.url);
+    const path = url.pathname;
+
+    // Serve the homepage
+    if (path === "/" || path === "/index.html") {
+      const file = Bun.file("/app/client/index.html");
+      return new Response(file, {
+        headers: { "Content-Type": "text/html" },
+      });
+    }
+
+    // Serve static files from the client directory
+    const filePath = `/app/client${path}`;
+    const file = Bun.file(filePath);
+    
+    if (await file.exists()) {
+      return new Response(file);
+    }
+
+    // Return 404 for everything else
+    const notFoundFile = Bun.file("/app/404.html");
+    return new Response(notFoundFile, {
+      status: 404,
+      headers: { "Content-Type": "text/html" },
+    });
   },
 });
 

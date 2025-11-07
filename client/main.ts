@@ -28,6 +28,7 @@ function createAlpineData() {
   return {
     theme: Alpine.$persist(process.env.THEME ?? 'dim'),
     searchData: '',
+    searchType: Alpine.$persist('computers' as 'computers' | 'mobiledevices'),
     errorMessage: '',
     successMessage: '',
     dataList: [] as ComputerInfo[],
@@ -54,7 +55,7 @@ function createAlpineData() {
           return;
         }
 
-        const response = await axios.get(`/data/${this.searchData}`)
+        const response = await axios.get(`/${this.searchType}/${this.searchData}`)
           .catch((error: any) => {
             console.error('Error fetching data:', error.response?.data || error.message);
             this.errorMessage = `An error occurred while searching for data. Error: ${error.response?.status ?? 'unknown'}`;
@@ -79,7 +80,8 @@ function createAlpineData() {
         });
       } catch (error: any) {
         if (error.response && error.response.status === 404) {
-          this.errorMessage = `No computer found for: ${this.searchData}`;
+          const deviceType = String(this.searchType) === 'computers' ? 'computer' : 'mobile device';
+          this.errorMessage = `No ${deviceType} found for: ${this.searchData}`;
         } else {
           this.errorMessage = `An error occurred while searching for data. Error: ${error.response?.status ?? 'unknown'}`;
         }
