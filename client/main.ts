@@ -55,7 +55,9 @@ function createAlpineData() {
           return;
         }
 
-        const response = await axios.get(`/${this.searchType}/${this.searchData}`)
+        // Encode search term to avoid issues with special characters like '*'
+        const encodedSearch = encodeURIComponent(this.searchData.trim());
+        const response = await axios.get(`/${this.searchType}/${encodedSearch}`)
           .catch((error: any) => {
             console.error('Error fetching data:', error.response?.data || error.message);
             this.errorMessage = `An error occurred while searching for data. Error: ${error.response?.status ?? 'unknown'}`;
@@ -112,11 +114,8 @@ function createAlpineData() {
         }
 
         if (hasPrestageUpdate) {
-          // JAMF Bug: PUT is supposed to replace the prestage scope, but it acts like POST
-          // and adds the device to the prestage scope without removing existing devices.
-          // This is a temporary workaround to ensure the device is added correctly.
-          await axios.delete(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`).catch(() => { }); // Silently ignore if it fails (moslty because device is not already in prestage)
-          await axios.post(`/change-prestage/${this.updateToPrestage}/${current.serialNumber}`);
+          // Add to target prestage (server will handle removing from current if needed)
+          await axios.post(`/change-prestage/${this.searchType}/${this.updateToPrestage}/${current.serialNumber}`);
         }
 
         if (hasChanges) {
@@ -125,7 +124,26 @@ function createAlpineData() {
               (current as any)[key] = '';
             }
           });
-          await axios.put(`/update-info/${encodeURIComponent(current.preloadId)}/${encodeURIComponent(current.computerId)}`, current)
+          
+          // Look up buildingId from building name
+          let buildingId: number | undefined;
+          if (current.building && current.building !== 'N/A' && current.building !== '') {
+            try {
+              const buildingsResponse = await axios.get('/buildings');
+              const buildings = buildingsResponse.data as Array<{ name: string; id: string; }>;
+              const matchingBuilding = buildings.find(b => b.name === current.building);
+              if (matchingBuilding) {
+                buildingId = parseInt(matchingBuilding.id, 10);
+              }
+            } catch (err) {
+              console.warn('Could not fetch buildings to lookup buildingId:', err);
+            }
+          }
+          
+          // Add buildingId to the payload
+          const payload = { ...current, buildingId };
+          
+          await axios.put(`/update-info/${this.searchType}/${encodeURIComponent(current.preloadId)}/${encodeURIComponent(current.computerId)}`, payload)
             .catch((error: any) => {
               console.error(`Error updating preload: ${error.response?.data || error.message}`);
               throw error;
@@ -208,18 +226,37 @@ function createAlpineData() {
   }
 }
 
-function fetchPrestages() {
+function fetchPrestages(params?: { getSearchType: () => 'computers' | 'mobiledevices'; getDataList: () => any[] }) {
   return {
     prestages: [],
+    currentSearchType: '',
 
-    async init() {
-      const response: AxiosResponse = await axios.get(`/prestages`)
-        .catch((error: any) => {
-          console.error('Error fetching prestages:', error.response?.data || error.message);
-          throw error;
+    async init(this: any) {
+      // If parent accessors are provided, watch those instead of relying on $root
+      if (params && typeof params.getDataList === 'function' && typeof params.getSearchType === 'function') {
+        this.$watch(() => params.getDataList(), async (dataList: any[]) => {
+          if (Array.isArray(dataList) && dataList.length > 0) {
+            const searchType = params.getSearchType() || 'computers';
+            if (searchType !== this.currentSearchType || this.prestages.length === 0) {
+              this.currentSearchType = searchType;
+              await this.loadPrestages(searchType);
+            }
+          }
         });
-      response.data.sort((a: { displayName: string; }, b: { displayName: string; }) => a.displayName.localeCompare(b.displayName));
-      this.prestages = response.data;
+      }
+    },
+
+    async loadPrestages(searchType: string) {
+      const endpoint = searchType === 'mobiledevices' ? '/mobile-prestages' : '/prestages';
+      try {
+        const response: AxiosResponse = await axios.get(endpoint);
+        response.data.sort((a: { displayName: string; }, b: { displayName: string; }) => a.displayName.localeCompare(b.displayName));
+        this.prestages = response.data;
+        console.log(`Loaded ${this.prestages.length} ${searchType === 'mobiledevices' ? 'mobile device' : 'computer'} prestages`);
+      } catch (error: any) {
+        console.error('Error fetching prestages:', error.response?.data || error.message);
+        this.prestages = [];
+      }
     }
   }
 }

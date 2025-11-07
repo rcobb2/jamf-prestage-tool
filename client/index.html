@@ -95,12 +95,13 @@
         <section class="w-full max-w-2xl">
 
           <!-- JSON Data Box -->
-          <fieldset class="fieldset bg-base-200 border-base-300 rounded-box border p-4 w-full rounded-box shadow">
+          <fieldset x-show="dataList && dataList.length > 0" class="fieldset bg-base-200 border-base-300 rounded-box border p-4 w-full rounded-box shadow">
             <legend class="fieldset-legend" x-text="currentData.assetTag === 'N/A' ? 'New JAMF Record' : 'JAMF Record'"></legend>
 
             <!-- JSON key/value fields -->
             <template x-for="(value, name) in currentData" :key="name">
-              <span class="flex justify-between items-center w-full" x-id="['data-field']" x-show="name !== 'currentPrestage'">
+              <!-- Hide currentPrestage (shown separately) and hide altMacAddress for mobile devices -->
+              <span class="flex justify-between items-center w-full" x-id="['data-field']" x-show="name !== 'currentPrestage' && !(name === 'altMacAddress' && searchType === 'mobiledevices')">
                 <label class="label text-base" :for="$id('data-field')" x-text="{
                   computerId: 'Computer ID',
                   assetTag: 'Asset Tag',
@@ -132,7 +133,7 @@
             </template>
 
             <!-- Prestage Dropdown -->
-            <section x-data="FetchPrestages">
+            <section x-data="FetchPrestages({ getSearchType: () => searchType, getDataList: () => dataList })">
               <div x-show="!showPrestageDropdown" class="flex justify-between items-center w-full">
                 <label class="label text-base">Prestage</label>
                 <div class="flex items-center gap-2">
@@ -142,7 +143,7 @@
               </div>
               <div x-show="showPrestageDropdown" class="flex justify-between items-center w-full">
                 <label class="label text-base">Prestage</label>
-                <select class="select" name="prestageDropdown" @change="updateToPrestage = $event.target.value; showPrestageDropdown = false">
+                <select class="select" name="prestageDropdown" @change="(() => { const selectedId = $event.target.value; updateToPrestage = selectedId; const p = prestages.find(pr => String(pr.id) === selectedId); if (p) { currentData.currentPrestage = p.displayName; } showPrestageDropdown = false; })()">
                   <option value="" selected disabled>Select Prestage</option>
                   <template x-for="prestage in prestages" :key="prestage.id">
                     <option :value="prestage.id" x-text="prestage.displayName"></option>
@@ -170,7 +171,7 @@
           </fieldset>
 
           <!-- Pagination & Send -->
-          <nav class="mt-2 grid gap-1 mb-20">
+          <nav x-show="dataList && dataList.length > 0" class="mt-2 grid gap-1 mb-20">
             <!-- First row: 3 main buttons -->
             <div class="join grid grid-cols-3 gap-1">
               <button @click="prev" class="join-item btn btn-soft">

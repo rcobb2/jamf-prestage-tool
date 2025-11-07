@@ -39,42 +39,101 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/api/change-prestage/:prestageId/:serialNumber": {
+    "/api/mobile-prestages": {
+      async GET() {
+        try {
+          const prestages = await utils.getMobilePrestages();
+          return new Response(JSON.stringify(prestages), { ...CORS_HEADERS, status: 200 });
+        } catch {
+          return new Response('Error fetching mobile prestages', { ...CORS_HEADERS, status: 500 });
+        }
+      }
+    },
+
+    "/api/change-prestage/:deviceType/:prestageId/:serialNumber": {
       async POST(req) {
-        const { serialNumber, prestageId } = req.params;
-        console.log(`Adding device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
+        const { serialNumber, prestageId, deviceType } = req.params;
+        console.log(`Adding ${deviceType} device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
 
         try {
-          const availiblePrestages = await utils.getPrestages();
+          const isMobileDevice = deviceType === 'mobiledevices';
+          const token = await utils.getJAMFToken();
+          
+          // First, find current prestage assignment
+          const currentPrestage = isMobileDevice
+            ? await utils.getMobilePrestageAssignments(serialNumber)
+            : await utils.getPrestageAssignments(serialNumber);
+          
+          console.log(`Current prestage for ${serialNumber}:`, currentPrestage.displayName);
+
+          // If device is already in a prestage and it's not the target, remove it first
+          if (currentPrestage.displayName !== 'Unassigned' && currentPrestage.displayName !== 'N/A') {
+            const allPrestages = isMobileDevice
+              ? await utils.getMobilePrestages()
+              : await utils.getPrestages();
+            
+            const currentPrestageObj = allPrestages.find(p => p.displayName === currentPrestage.displayName);
+            
+            if (currentPrestageObj && currentPrestageObj.id !== prestageId) {
+              console.log(`Removing from current prestage ${currentPrestageObj.id} before adding to ${prestageId}`);
+              const removeEndpoint = isMobileDevice
+                ? `${JAMF_INSTANCE}/api/v2/mobile-device-prestages/${currentPrestageObj.id}/scope/delete-multiple`
+                : `${JAMF_INSTANCE}/api/v2/computer-prestages/${currentPrestageObj.id}/scope/delete-multiple`;
+              
+              const removeBody: any = { serialNumbers: [serialNumber] };
+              if (currentPrestageObj.versionLock && currentPrestageObj.versionLock !== 'N/A') {
+                removeBody.versionLock = currentPrestageObj.versionLock;
+              }
+
+              await axios.post(removeEndpoint, removeBody, { 
+                headers: { Authorization: `Bearer ${token}` } 
+              }).catch((err) => {
+                console.error('Warning: Failed to remove from current prestage:', err.response?.data);
+                // Continue anyway - device might not actually be in that prestage
+              });
+            }
+          }
+
+          // Now add to target prestage
+          const availiblePrestages = isMobileDevice 
+            ? await utils.getMobilePrestages() 
+            : await utils.getPrestages();
           const prestage = availiblePrestages.find(p => p.id === prestageId);
 
           if (!prestage) {
             return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
           }
 
-          const token = await utils.getJAMFToken();
-          const response = await axios.put(
-            `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope`,
-            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const endpoint = isMobileDevice
+            ? `${JAMF_INSTANCE}/api/v2/mobile-device-prestages/${prestage.id}/scope`
+            : `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope`;
+
+          const body: any = { serialNumbers: [serialNumber] };
+          if (prestage.versionLock && prestage.versionLock !== 'N/A') {
+            body.versionLock = prestage.versionLock;
+          }
+
+          const response = await axios.put(endpoint, body, { headers: { Authorization: `Bearer ${token}` } });
 
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
           const status = error?.response?.status;
           if (status === 400) {
-            return new Response(`Please remove from current prestage before adding: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 400 });
+            console.error('Add prestage 400 error details:', error.response?.data);
+            return new Response(`Error: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 400 });
           }
-          return new Response(`Error adding device to prestage: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 500 });
+          console.error('Add prestage error:', status, error.response?.data);
+          return new Response(`Error adding device to prestage: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
         }
-      },
-
-      async DELETE(req) {
-        const { prestageId, serialNumber } = req.params;
-        console.log(`Removing device with serial number: ${serialNumber} from prestage: ${prestageId}`);
+      },      async DELETE(req) {
+        const { prestageId, serialNumber, deviceType } = req.params;
+        console.log(`Removing ${deviceType} device with serial number: ${serialNumber} from prestage: ${prestageId}`);
 
         try {
-          const availiblePrestages = await utils.getPrestages();
+          const isMobileDevice = deviceType === 'mobiledevices';
+          const availiblePrestages = isMobileDevice
+            ? await utils.getMobilePrestages()
+            : await utils.getPrestages();
           const prestage = availiblePrestages.find(p => p.id === prestageId);
 
           if (!prestage) {
@@ -82,15 +141,22 @@ const server: Bun.Server = Bun.serve({
           }
 
           const token = await utils.getJAMFToken();
-          const response = await axios.post(
-            `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`,
-            { serialNumbers: [serialNumber], versionLock: prestage.versionLock },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          const endpoint = isMobileDevice
+            ? `${JAMF_INSTANCE}/api/v2/mobile-device-prestages/${prestage.id}/scope/delete-multiple`
+            : `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope/delete-multiple`;
+
+          // Build request body as with add
+          const body: any = { serialNumbers: [serialNumber] };
+          if (prestage.versionLock && prestage.versionLock !== 'N/A') {
+            body.versionLock = prestage.versionLock;
+          }
+
+          const response = await axios.post(endpoint, body, { headers: { Authorization: `Bearer ${token}` } });
 
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
-          return new Response(`Error removing device from prestage: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 500 });
+          console.error('Remove prestage error:', error.response?.status, error.response?.data);
+          return new Response(`Error removing device from prestage: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
         }
       }
     },
@@ -113,6 +179,7 @@ const server: Bun.Server = Bun.serve({
     "/api/computers/:search": {
       async GET(req) {
         const { search } = req.params;
+        console.log(`[Computer Search] Incoming search for: ${search}`);
         try {
           const computers = await utils.matchComputer(search);
           const token = await utils.getJAMFToken();
@@ -207,6 +274,7 @@ const server: Bun.Server = Bun.serve({
     "/api/mobiledevices/:search": {
       async GET(req) {
         const { search } = req.params;
+        console.log(`[Mobile Device Search] Incoming search for: ${search}`);
         try {
           const mobileDevices = await utils.matchMobileDevice(search);
           const token = await utils.getJAMFToken();
@@ -373,26 +441,27 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/api/update-info/:preloadId/:computerId": {
+    "/api/update-info/:deviceType/:preloadId/:computerId": {
       async PUT(req) {
         const body = await req.json() as JAMFResponse;
+        const deviceType = req.params.deviceType;
         const preloadId = decodeURIComponent(req.params.preloadId);
         const computerId = decodeURIComponent(req.params.computerId);
-        const { serialNumber, username, emailAddress, building, room, assetTag, buildingId } = body;
+        const isMobileDevice = deviceType === 'mobiledevices';
+
+        const { serialNumber, username, emailAddress, building, room, assetTag, buildingId, email } = body;
         const preloadData = {
-          deviceType: 'Computer',
+          deviceType: isMobileDevice ? 'Mobile Device' : 'Computer',
           serialNumber,
           username,
-          emailAddress,
+          emailAddress: emailAddress || email || '', // Try both field names
           building,
           room,
           assetTag
         };
-        const computerData = {
-          general: { assetTag },
-          userAndLocation: { username, email: emailAddress, buildingId, room }
-        };
-        console.log(`Updating preload with ID: ${preloadId} for computer ID: ${computerId}`);
+
+        console.log(`Updating preload with ID: ${preloadId} for ${isMobileDevice ? 'mobile device' : 'computer'} ID: ${computerId}`);
+        console.log('Preload data being sent:', JSON.stringify(preloadData, null, 2));
 
         try {
           const token = await utils.getJAMFToken();
@@ -409,20 +478,61 @@ const server: Bun.Server = Bun.serve({
             headers: { Authorization: `Bearer ${token}` }
           });
 
+          // Update device inventory (mobile or computer)
           if (computerId === 'undefined' || computerId === 'N/A') {
-            return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null }), { ...CORS_HEADERS, status: 200 });
+            return new Response(JSON.stringify({ preload: preloadResponse.data, device: null }), { ...CORS_HEADERS, status: 200 });
           }
 
+          if (isMobileDevice) {
+            // Update mobile device inventory
+            try {
+              const mobileDeviceData: any = {
+                location: {
+                  username: username || '',
+                  emailAddress: emailAddress || email || '',
+                  room: room || ''
+                },
+                assetTag: assetTag || ''
+              };
+              
+              // Only include buildingId if it's provided and not empty
+              if (buildingId) {
+                mobileDeviceData.location.buildingId = buildingId;
+              }
+              
+              console.log('Mobile device data being sent:', JSON.stringify(mobileDeviceData, null, 2));
+              const mobileResponse = await axios.patch(
+                `${JAMF_INSTANCE}/api/v2/mobile-devices/${computerId}`,
+                mobileDeviceData,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              console.log('Mobile device update response:', mobileResponse.status);
+              return new Response(JSON.stringify({ preload: preloadResponse.data, device: mobileResponse.data }), { ...CORS_HEADERS, status: 200 });
+            } catch (err: any) {
+              console.error('Failed to update mobile device information:', err.response?.data || err.message);
+              return new Response(JSON.stringify({ preload: preloadResponse.data, device: null, error: 'Failed to update mobile device information' }), { ...CORS_HEADERS, status: 500 });
+            }
+          }
+
+          // Update computer inventory
           try {
+            const computerData = {
+              general: { assetTag },
+              userAndLocation: { username, email: emailAddress || email, buildingId, room }
+            };
+            console.log('Computer data being sent:', JSON.stringify(computerData, null, 2));
             const computerResponse = await axios.patch(`${JAMF_INSTANCE}/api/v1/computers-inventory-detail/${computerId}`, computerData, {
               headers: { Authorization: `Bearer ${token}` }
             });
+            console.log('Computer update response:', computerResponse.status);
             return new Response(JSON.stringify({ preload: preloadResponse.data, computer: computerResponse.data }), { ...CORS_HEADERS, status: 200 });
-          } catch {
+          } catch (err: any) {
+            console.error('Failed to update computer information:', err.response?.data || err.message);
             return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }), { ...CORS_HEADERS, status: 500 });
           }
         } catch (error: any) {
-          return new Response(`Error updating preload/computer information: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
+          console.error('Error updating preload/computer information:', error.response?.data || error.message);
+          return new Response(`Error updating preload/computer information: ${JSON.stringify(error.response?.data || error.message)}`, { ...CORS_HEADERS, status: 500 });
         }
       }
     },
