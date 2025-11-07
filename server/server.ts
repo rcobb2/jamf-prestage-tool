@@ -110,7 +110,7 @@ const server: Bun.Server = Bun.serve({
       }
     },
 
-    "/api/data/:search": {
+    "/api/computers/:search": {
       async GET(req) {
         const { search } = req.params;
         try {
@@ -199,6 +199,67 @@ const server: Bun.Server = Bun.serve({
             return new Response(JSON.stringify(results), { ...CORS_HEADERS, status: 200 });
           }
         } catch (error: any) {
+          return new Response(`${error.message || 'Unknown error'}`, { ...CORS_HEADERS, status: 500 });
+        }
+      }
+    },
+
+    "/api/mobiledevices/:search": {
+      async GET(req) {
+        const { search } = req.params;
+        try {
+          const mobileDevices = await utils.matchMobileDevice(search);
+          const token = await utils.getJAMFToken();
+          let results: any[] = [];
+
+          if (mobileDevices.length === 0) {
+            return new Response('No mobile device found', { ...CORS_HEADERS, status: 404 });
+          }
+
+          // Fetch mobile device details
+          results = await Promise.all(
+            mobileDevices.map(async ({ id, serial_number }) => {
+              const deviceRes = await axios.get<{
+                id: number;
+                general: any;
+                hardware: any;
+              }>(
+                `${JAMF_INSTANCE}/api/v2/mobile-devices/${id}/detail`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+
+              const prestage = await utils.getMobilePrestageAssignments(serial_number);
+              const preloadRes = await axios.get<{ results: any[] }>(
+                `${JAMF_INSTANCE}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${serial_number}`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+
+              const general = deviceRes.data.general || {};
+              const hardware = deviceRes.data.hardware || {};
+              const preload = preloadRes.data.results[0] || {};
+
+              return {
+                computerId: deviceRes.data.id, // Using computerId for consistency with UI
+                name: general.name || 'N/A',
+                assetTag: general.assetTag || 'N/A',
+                macAddress: hardware.wifiMacAddress || 'N/A',
+                altMacAddress: hardware.bluetoothMacAddress || 'N/A',
+                enrollmentMethod: general.enrollmentMethod || 'No enrollment method found',
+                serialNumber: serial_number,
+                currentPrestage: prestage.displayName,
+                preloadId: preload.id,
+                username: preload.username,
+                email: preload.emailAddress,
+                building: preload.building,
+                room: preload.room
+              };
+            })
+          );
+
+          return new Response(JSON.stringify(results), { ...CORS_HEADERS, status: 200 });
+        } catch (error: any) {
+          console.error('Mobile device search error:', error);
+          console.error('Error stack:', error.stack);
           return new Response(`${error.message || 'Unknown error'}`, { ...CORS_HEADERS, status: 500 });
         }
       }

@@ -179,3 +179,69 @@ export async function wipeDevice(computerId: string): Promise<Response> {
     return new Response(JSON.stringify(message), { status: status });
   }
 }
+
+// ============================================================================
+// Mobile Device Functions
+// ============================================================================
+
+export type MobileDeviceMatch = { id: number; serial_number: string; };
+
+// Function to match mobile devices based on search query
+export async function matchMobileDevice(search: string): Promise<MobileDeviceMatch[]> {
+  const token = await getJAMFToken();
+  const apiUrl = `${JAMF_INSTANCE}/JSSResource/mobiledevices/match/${search}`;
+  const response = await axios.get(apiUrl, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (response.data && response.data.mobile_devices && Array.isArray(response.data.mobile_devices)) {
+    return response.data.mobile_devices.map((item: any) => ({
+      id: item.id,
+      serial_number: item.serial_number
+    })) as MobileDeviceMatch[];
+  }
+  throw new Error('Unexpected response format');
+}
+
+// Function to get mobile device prestages
+export async function getMobilePrestages(): Promise<{ id: string; displayName: string; versionLock: string }[]> {
+  const token = await getJAMFToken();
+  const apiUrl = `${JAMF_INSTANCE}/api/v3/mobile-device-prestages?page=0&page-size=100&sort=id%3Adesc`;
+  const response = await axios.get<{ results: { id: string; displayName: string; versionLock?: string }[] }>(apiUrl, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  return response.data.results.map((prestage) => ({
+    id: prestage.id,
+    displayName: prestage.displayName,
+    versionLock: prestage.versionLock || 'N/A'
+  }));
+}
+
+// Function to get mobile device prestage assignments for a given serial number
+export async function getMobilePrestageAssignments(serialNumber: string): Promise<{ serialNumber: string; displayName: string }> {
+  const token = await getJAMFToken();
+  
+  try {
+    // Get all mobile device prestages
+    const prestages = await getMobilePrestages();
+    
+    // Check each prestage's scope for this serial number
+    for (const prestage of prestages) {
+      const scopeUrl = `${JAMF_INSTANCE}/api/v2/mobile-device-prestages/${prestage.id}/scope`;
+      const scopeResponse = await axios.get<{ assignments: any[] }>(scopeUrl, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const assignment = scopeResponse.data.assignments?.find((a: any) => a.serialNumber === serialNumber);
+      if (assignment) {
+        return {
+          serialNumber: assignment.serialNumber,
+          displayName: prestage.displayName
+        };
+      }
+    }
+  } catch (error) {
+    console.error('Error getting mobile prestage assignments:', error);
+  }
+  
+  return { serialNumber, displayName: 'N/A' };
+}
