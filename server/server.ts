@@ -221,8 +221,18 @@ const server: Bun.Server = Bun.serve({
             mobileDevices.map(async ({ id, serial_number }) => {
               const deviceRes = await axios.get<{
                 id: number;
-                general: any;
-                hardware: any;
+                name: string;
+                assetTag: string;
+                wifiMacAddress: string;
+                bluetoothMacAddress: string;
+                enrollmentMethod: string;
+                serialNumber: string;
+                location: {
+                  username: string;
+                  emailAddress: string;
+                  buildingId: string;
+                  room: string;
+                };
               }>(
                 `${JAMF_INSTANCE}/api/v2/mobile-devices/${id}/detail`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -234,24 +244,24 @@ const server: Bun.Server = Bun.serve({
                 { headers: { Authorization: `Bearer ${token}` } }
               );
 
-              const general = deviceRes.data.general || {};
-              const hardware = deviceRes.data.hardware || {};
+              const device = deviceRes.data;
               const preload = preloadRes.data.results[0] || {};
+              const location = device.location || {};
 
               return {
-                computerId: deviceRes.data.id, // Using computerId for consistency with UI
-                name: general.name || 'N/A',
-                assetTag: general.assetTag || 'N/A',
-                macAddress: hardware.wifiMacAddress || 'N/A',
-                altMacAddress: hardware.bluetoothMacAddress || 'N/A',
-                enrollmentMethod: general.enrollmentMethod || 'No enrollment method found',
-                serialNumber: serial_number,
+                computerId: device.id, // Using computerId for consistency with UI
+                name: device.name || 'N/A',
+                assetTag: device.assetTag || 'N/A',
+                macAddress: device.wifiMacAddress || 'N/A',
+                altMacAddress: device.bluetoothMacAddress || 'N/A',
+                enrollmentMethod: device.enrollmentMethod || 'No enrollment method found',
+                serialNumber: device.serialNumber,
                 currentPrestage: prestage.displayName,
                 preloadId: preload.id,
-                username: preload.username,
-                email: preload.emailAddress,
-                building: preload.building,
-                room: preload.room
+                username: preload.username || location.username || 'N/A',
+                email: preload.emailAddress || location.emailAddress || 'N/A',
+                building: preload.building || location.buildingId || 'N/A',
+                room: preload.room || location.room || 'N/A'
               };
             })
           );
