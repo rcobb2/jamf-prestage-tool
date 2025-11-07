@@ -9,8 +9,8 @@ services:
       - .env
     volumes:
       - ./client:/app/client
-      - ./server.cert:/app/server.cert:ro
-      - ./server.key:/app/server.key:ro
+      - ./certs/server.cert:/app/server.cert:ro
+      - ./certs/server.key:/app/server.key:ro
     ports:
       - "443:443"
     develop:
@@ -29,8 +29,8 @@ services:
       - .env
     volumes:
       - ./server:/app
-      - ./server.cert:/app/server.cert:ro
-      - ./server.key:/app/server.key:ro
+      - ./certs/server.cert:/app/server.cert:ro
+      - ./certs/server.key:/app/server.key:ro
     ports:
       - "8443:8443"
     develop:

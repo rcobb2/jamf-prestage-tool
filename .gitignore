@@ -268,3 +268,6 @@ nginx.conf
 bun.lock
 **/pnpm-lock.yaml
 **/app.bundle.js
+# SSL Certificate Management (InCommon)
+certs/
+ssl-backups/
