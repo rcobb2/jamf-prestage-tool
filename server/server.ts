@@ -104,6 +104,16 @@ const server: Bun.Server = Bun.serve({
             return new Response('Prestage not found', { ...CORS_HEADERS, status: 404 });
           }
 
+          // Determine if a dry-run was requested via query param
+          const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
+          const dryRun = url.searchParams.get('dryRun') === 'true';
+
+          // Validate serial number format (basic hex/alphanumeric check)
+          const serialRegex = /^[A-F0-9]{6,}$/i;
+          if (!serialRegex.test(serialNumber)) {
+            return new Response('Invalid serial number format', { ...CORS_HEADERS, status: 400 });
+          }
+
           const endpoint = isMobileDevice
             ? `${JAMF_INSTANCE}/api/v2/mobile-device-prestages/${prestage.id}/scope`
             : `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope`;
@@ -113,7 +123,14 @@ const server: Bun.Server = Bun.serve({
             body.versionLock = prestage.versionLock;
           }
 
-          const response = await axios.put(endpoint, body, { headers: { Authorization: `Bearer ${token}` } });
+          // If dry-run, return the payload without contacting Jamf
+          if (dryRun) {
+            const dryResponse = { dryRun: true, endpoint, method: 'POST', body };
+            return new Response(JSON.stringify(dryResponse), { ...CORS_HEADERS, status: 200 });
+          }
+
+          // Use POST to add device without overwriting existing scope
+          const response = await axios.post(endpoint, body, { headers: { Authorization: `Bearer ${token}` } });
 
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {

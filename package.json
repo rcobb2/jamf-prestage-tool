@@ -4,14 +4,19 @@
   "devDependencies": {
     "@types/alpinejs": "^3.13.11",
     "@types/alpinejs__persist": "^3.13.4",
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "axios-mock-adapter": "^1.22.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "@types/jest": "^29.5.12"
   },
   "peerDependencies": {
     "typescript": "^5.8.3"
   },
   "private": true,
   "scripts": {
-    "client": "bun build client/app.ts --minify-syntax --minify-whitespace --target=browser --outfile client/app.bundle.js"
+    "client": "bun build client/app.ts --minify-syntax --minify-whitespace --target=browser --outfile client/app.bundle.js",
+    "test": "jest"
   },
   "type": "module",
   "dependencies": {
