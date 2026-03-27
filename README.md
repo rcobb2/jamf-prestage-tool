@@ -22,6 +22,22 @@ A lightweight tool to automate and customize the Jamf Prestage enrollment experi
 5. Configure the JAMF API (see "JAMF Setup" below)
 
 ## Usage
+
+### Dry‑run mode
+You can preview the exact payload that would be sent to Jamf without making any changes by adding the `dryRun=true` query parameter to the **change‑prestage** endpoint.
+
+```http
+POST /api/change-prestage/computers/<prestageId>/<serialNumber>?dryRun=true
+```
+
+The response will contain:
+- `dryRun: true`
+- `endpoint` – the full Jamf API URL that would be called.
+- `method` – always `POST`.
+- `body` – the JSON payload (e.g., `{ "serialNumbers": ["ABC123"] }`).
+
+Use this in UI or scripts to verify before performing real assignments.
+
 1. Ensure your environment is properly configured.
 2. Run the main script to initiate the automated process:
    ```bash
@@ -119,6 +135,9 @@ At the bottom, you’ll find a dropdown with your available prestages. To assign
 **Update Preload Information:**
 This updates both the preload and inventory records if the device is already enrolled. If not, only the preload record is updated and you’ll be notified.
 
+
+## Reliability improvements – retry logic
+The tool now automatically retries transient network errors and server‑side (5xx) failures up to three times with exponential back‑off. This is powered by the `axios-retry` library and applies to all Jamf API calls (including token acquisition, device assignment, and removal). No additional configuration is required.
 
 ## Support / Further Configuration
 - Check the repository's [Issues](../../issues) for tips or existing discussions.

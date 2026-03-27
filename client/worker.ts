@@ -36,7 +36,9 @@ const server = Bun.serve({
     const file = Bun.file(filePath);
     
     if (await file.exists()) {
-      return new Response(file);
+      return new Response(file, {
+        headers: { "Cache-Control": "no-store" },
+      });
     }
 
     // Return 404 for everything else

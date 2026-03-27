@@ -1,6 +1,30 @@
 import axios from "axios";
+import logger from "./logger.ts";
+import { writeAudit, getAuditLog, createApproval, getPendingApprovals, resolveApproval } from "./db.ts";
+// dotenv import removed – environment variables are loaded via Docker env_file
+
+// dotenv config call removed – Docker injects env vars
 import * as utils from "./utils.ts";
 import { CORS_HEADERS, type JAMFResponse } from "./utils.ts";
+
+// Parse local admin accounts from ADMIN_ACCOUNTS env var: "alice:1234,bob:5678"
+const ADMIN_ACCOUNTS: Record<string, string> = {};
+(process.env.ADMIN_ACCOUNTS ?? '').split(',').forEach(entry => {
+  const [user, pin] = entry.trim().split(':');
+  if (user && pin) ADMIN_ACCOUNTS[user.toLowerCase()] = pin;
+});
+
+function validateAccount(username: string, pin: string): boolean {
+  return !!ADMIN_ACCOUNTS[username.toLowerCase()] && ADMIN_ACCOUNTS[username.toLowerCase()] === pin;
+}
+
+function getActor(req: Request): string {
+  return req.headers.get('X-User-Name') ?? 'unknown';
+}
+
+function getIP(req: Request): string {
+  return req.headers.get('X-Forwarded-For') ?? 'unknown';
+}
 
 const notFound = Bun.file("404.html");
 
@@ -19,6 +43,7 @@ axios.defaults.headers.common["Accept"] = "application/json";
 axios.defaults.headers.common["Content-Type"] = "application/json";
 
 // Main handler
+// @ts-ignore
 const server: Bun.Server = Bun.serve({
   development: false,
   hostname: SERVER_API_HOSTNAME || "localhost",
@@ -53,7 +78,7 @@ const server: Bun.Server = Bun.serve({
     "/api/change-prestage/:deviceType/:prestageId/:serialNumber": {
       async POST(req) {
         const { serialNumber, prestageId, deviceType } = req.params;
-        console.log(`Adding ${deviceType} device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
+        logger.info(`Adding ${deviceType} device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
 
         try {
           const isMobileDevice = deviceType === 'mobiledevices';
@@ -64,7 +89,7 @@ const server: Bun.Server = Bun.serve({
             ? await utils.getMobilePrestageAssignments(serialNumber)
             : await utils.getPrestageAssignments(serialNumber);
           
-          console.log(`Current prestage for ${serialNumber}:`, currentPrestage.displayName);
+          logger.info(`Current prestage for ${serialNumber}:`, currentPrestage.displayName);
 
           // If device is already in a prestage and it's not the target, remove it first
           if (currentPrestage.displayName !== 'Unassigned' && currentPrestage.displayName !== 'N/A') {
@@ -75,7 +100,7 @@ const server: Bun.Server = Bun.serve({
             const currentPrestageObj = allPrestages.find(p => p.displayName === currentPrestage.displayName);
             
             if (currentPrestageObj && currentPrestageObj.id !== prestageId) {
-              console.log(`Removing from current prestage ${currentPrestageObj.id} before adding to ${prestageId}`);
+              logger.info(`Removing from current prestage ${currentPrestageObj.id} before adding to ${prestageId}`);
               const removeEndpoint = isMobileDevice
                 ? `${JAMF_INSTANCE}/api/v2/mobile-device-prestages/${currentPrestageObj.id}/scope/delete-multiple`
                 : `${JAMF_INSTANCE}/api/v2/computer-prestages/${currentPrestageObj.id}/scope/delete-multiple`;
@@ -88,7 +113,7 @@ const server: Bun.Server = Bun.serve({
               await axios.post(removeEndpoint, removeBody, { 
                 headers: { Authorization: `Bearer ${token}` } 
               }).catch((err) => {
-                console.error('Warning: Failed to remove from current prestage:', err.response?.data);
+                logger.warn('Warning: Failed to remove from current prestage:', err.response?.data);
                 // Continue anyway - device might not actually be in that prestage
               });
             }
@@ -108,43 +133,29 @@ const server: Bun.Server = Bun.serve({
           const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
           const dryRun = url.searchParams.get('dryRun') === 'true';
 
-          // Validate serial number format (basic hex/alphanumeric check)
-          const serialRegex = /^[A-F0-9]{6,}$/i;
+          // Validate serial number format (Apple serials are alphanumeric, 8-12 chars)
+          const serialRegex = /^[A-Z0-9]{6,}$/i;
           if (!serialRegex.test(serialNumber)) {
             return new Response('Invalid serial number format', { ...CORS_HEADERS, status: 400 });
           }
 
-          const endpoint = isMobileDevice
-            ? `${JAMF_INSTANCE}/api/v2/mobile-device-prestages/${prestage.id}/scope`
-            : `${JAMF_INSTANCE}/api/v2/computer-prestages/${prestage.id}/scope`;
-
-          const body: any = { serialNumbers: [serialNumber] };
-          if (prestage.versionLock && prestage.versionLock !== 'N/A') {
-            body.versionLock = prestage.versionLock;
-          }
-
-          // If dry-run, return the payload without contacting Jamf
-          if (dryRun) {
-            const dryResponse = { dryRun: true, endpoint, method: 'POST', body };
-            return new Response(JSON.stringify(dryResponse), { ...CORS_HEADERS, status: 200 });
-          }
-
-          // Use POST to add device without overwriting existing scope
-          const response = await axios.post(endpoint, body, { headers: { Authorization: `Bearer ${token}` } });
-
-          return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
+           // Use helper to add device (handles dry-run and POST)
+           const addResult = await utils.addDeviceToPrestage(prestage.id, serialNumber, isMobileDevice, token, prestage.versionLock, dryRun);
+           writeAudit({ action: 'prestage_change', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, details: { prestageId, prestage: prestage.displayName, dryRun }, result: 'success' });
+           return new Response(JSON.stringify(addResult), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
           const status = error?.response?.status;
+          writeAudit({ action: 'prestage_change', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, details: { prestageId }, result: 'error', error_detail: String(error.response?.data ?? error.message) });
           if (status === 400) {
-            console.error('Add prestage 400 error details:', error.response?.data);
+            logger.error('Add prestage 400 error details:', error.response?.data);
             return new Response(`Error: ${JSON.stringify(error.response.data)}`, { ...CORS_HEADERS, status: 400 });
           }
-          console.error('Add prestage error:', status, error.response?.data);
+          logger.error('Add prestage error:', {status, data: error.response?.data});
           return new Response(`Error adding device to prestage: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
         }
       },      async DELETE(req) {
         const { prestageId, serialNumber, deviceType } = req.params;
-        console.log(`Removing ${deviceType} device with serial number: ${serialNumber} from prestage: ${prestageId}`);
+        logger.info(`Removing ${deviceType} device with serial number: ${serialNumber} from prestage: ${prestageId}`);
 
         try {
           const isMobileDevice = deviceType === 'mobiledevices';
@@ -172,7 +183,7 @@ const server: Bun.Server = Bun.serve({
 
           return new Response(JSON.stringify(response.data), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
-          console.error('Remove prestage error:', error.response?.status, error.response?.data);
+          logger.error('Remove prestage error:', {status: error.response?.status, data: error.response?.data});
           return new Response(`Error removing device from prestage: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
         }
       }
@@ -196,7 +207,7 @@ const server: Bun.Server = Bun.serve({
     "/api/computers/:search": {
       async GET(req) {
         const { search } = req.params;
-        console.log(`[Computer Search] Incoming search for: ${search}`);
+        logger.info(`[Computer Search] Incoming search for: ${search}`);
         try {
           const computers = await utils.matchComputer(search);
           const token = await utils.getJAMFToken();
@@ -291,7 +302,7 @@ const server: Bun.Server = Bun.serve({
     "/api/mobiledevices/:search": {
       async GET(req) {
         const { search } = req.params;
-        console.log(`[Mobile Device Search] Incoming search for: ${search}`);
+        logger.info(`[Mobile Device Search] Incoming search for: ${search}`);
         try {
           const mobileDevices = await utils.matchMobileDevice(search);
           const token = await utils.getJAMFToken();
@@ -353,8 +364,7 @@ const server: Bun.Server = Bun.serve({
 
           return new Response(JSON.stringify(results), { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
-          console.error('Mobile device search error:', error);
-          console.error('Error stack:', error.stack);
+          logger.error({ err: error.message, stack: error.stack }, 'Mobile device search error');
           return new Response(`${error.message || 'Unknown error'}`, { ...CORS_HEADERS, status: 500 });
         }
       }
@@ -363,9 +373,10 @@ const server: Bun.Server = Bun.serve({
     "/api/wipedevice/:computerId": {
       async DELETE(req) {
         const { computerId } = req.params;
-        console.log(`Wiping device with ID: ${computerId}`);
-
-        return await utils.wipeDevice(computerId)
+        logger.info({ computerId }, 'Wiping device');
+        const result = await utils.wipeDevice(computerId);
+        writeAudit({ action: 'wipe', actor: getActor(req), ip: getIP(req), device_id: computerId, result: result.status === 200 ? 'success' : 'error' });
+        return result;
       }
     },
 
@@ -373,7 +384,7 @@ const server: Bun.Server = Bun.serve({
     "/api/retiredevice/:computerId/:serialNumber/:macAddress/:altMacAddress": {
       async DELETE(req) {
         const { computerId, serialNumber, macAddress, altMacAddress } = req.params;
-        console.log(`Retiring device with ID: ${computerId}`);
+        logger.info({ computerId, serialNumber }, 'Retiring device');
 
         // return new Response('Retiring device is not implemented.', { ...CORS_HEADERS, status: 501 });
 
@@ -401,7 +412,7 @@ const server: Bun.Server = Bun.serve({
             return new Response('Failed to get GLPI session token', { ...CORS_HEADERS, status: 500 });
           }
 
-          console.log(`GPLI not in use yet, skipping GLPI retirement steps.`);
+          logger.info('GLPI not in use yet, skipping GLPI retirement steps.');
           // Search for the computer in GLPI by serial number
           const params = new URLSearchParams({
             'criteria[0][field]': '5', // Field 5 is usually serial number in GLPI
@@ -436,23 +447,24 @@ const server: Bun.Server = Bun.serve({
           }
 
           // Cleanup GLPI session
-          console.log('Cleaning up GLPI session...');
+          logger.info('Cleaning up GLPI session...');
           const cleanup = await utils.cleanupGLPI(sessionToken);
-          console.log('Cleanup response:', cleanup.data);
+          logger.info({ status: cleanup.status }, 'GLPI session cleanup response');
 
           // Remove MAC address from Clearpass
           if (macAddress && altMacAddress) {
-            console.log(`Deleting MAC address ${macAddress} from Clearpass...`);
+            logger.info({ macAddress }, 'Deleting primary MAC from Clearpass');
             await utils.deleteClearpassMAC(macAddress);
-
-            console.log(`Deleting MAC address ${altMacAddress} from Clearpass...`);
+            logger.info({ altMacAddress }, 'Deleting secondary MAC from Clearpass');
             await utils.deleteClearpassMAC(altMacAddress);
           }
 
+          writeAudit({ action: 'retire', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, result: 'success' });
           return new Response('Device retired successfully', { ...CORS_HEADERS, status: 200 });
         } catch (error: any) {
           const status = error?.response?.status || 500;
           const message = error?.response?.data || error?.message || 'Error retiring device';
+          writeAudit({ action: 'retire', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, result: 'error', error_detail: String(message) });
           return new Response(message, { ...CORS_HEADERS, status });
         }
       }
@@ -477,8 +489,8 @@ const server: Bun.Server = Bun.serve({
           assetTag
         };
 
-        console.log(`Updating preload with ID: ${preloadId} for ${isMobileDevice ? 'mobile device' : 'computer'} ID: ${computerId}`);
-        console.log('Preload data being sent:', JSON.stringify(preloadData, null, 2));
+        logger.info({ preloadId, computerId, deviceType }, 'Updating preload record');
+        logger.debug({ preloadData }, 'Preload data being sent');
 
         try {
           const token = await utils.getJAMFToken();
@@ -497,6 +509,7 @@ const server: Bun.Server = Bun.serve({
 
           // Update device inventory (mobile or computer)
           if (computerId === 'undefined' || computerId === 'N/A') {
+            writeAudit({ action: 'update_info', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, details: { username, email: emailAddress || email, building, room, assetTag }, result: 'success' });
             return new Response(JSON.stringify({ preload: preloadResponse.data, device: null }), { ...CORS_HEADERS, status: 200 });
           }
 
@@ -517,16 +530,18 @@ const server: Bun.Server = Bun.serve({
                 mobileDeviceData.location.buildingId = buildingId;
               }
               
-              console.log('Mobile device data being sent:', JSON.stringify(mobileDeviceData, null, 2));
+              logger.debug({ mobileDeviceData }, 'Mobile device data being sent');
               const mobileResponse = await axios.patch(
                 `${JAMF_INSTANCE}/api/v2/mobile-devices/${computerId}`,
                 mobileDeviceData,
                 { headers: { Authorization: `Bearer ${token}` } }
               );
-              console.log('Mobile device update response:', mobileResponse.status);
+              logger.info({ status: mobileResponse.status }, 'Mobile device update response');
+              writeAudit({ action: 'update_info', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, details: { username, email: emailAddress || email, building, room, assetTag }, result: 'success' });
               return new Response(JSON.stringify({ preload: preloadResponse.data, device: mobileResponse.data }), { ...CORS_HEADERS, status: 200 });
             } catch (err: any) {
-              console.error('Failed to update mobile device information:', err.response?.data || err.message);
+              logger.error({ err: err.response?.data || err.message }, 'Failed to update mobile device information');
+              writeAudit({ action: 'update_info', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, details: { username, email: emailAddress || email, building, room, assetTag }, result: 'error', error_detail: String(err.response?.data || err.message) });
               return new Response(JSON.stringify({ preload: preloadResponse.data, device: null, error: 'Failed to update mobile device information' }), { ...CORS_HEADERS, status: 500 });
             }
           }
@@ -537,24 +552,132 @@ const server: Bun.Server = Bun.serve({
               general: { assetTag },
               userAndLocation: { username, email: emailAddress || email, buildingId, room }
             };
-            console.log('Computer data being sent:', JSON.stringify(computerData, null, 2));
+            logger.debug('Computer data being sent:', JSON.stringify(computerData, null, 2));
             const computerResponse = await axios.patch(`${JAMF_INSTANCE}/api/v1/computers-inventory-detail/${computerId}`, computerData, {
               headers: { Authorization: `Bearer ${token}` }
             });
-            console.log('Computer update response:', computerResponse.status);
+            logger.info('Computer update response:', computerResponse.status);
+            writeAudit({ action: 'update_info', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, details: { username, email: emailAddress || email, building, room, assetTag }, result: 'success' });
             return new Response(JSON.stringify({ preload: preloadResponse.data, computer: computerResponse.data }), { ...CORS_HEADERS, status: 200 });
           } catch (err: any) {
-            console.error('Failed to update computer information:', err.response?.data || err.message);
+            logger.error('Failed to update computer information:', err.response?.data || err.message);
+            writeAudit({ action: 'update_info', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, details: { username, email: emailAddress || email, building, room, assetTag }, result: 'error', error_detail: String(err.response?.data || err.message) });
             return new Response(JSON.stringify({ preload: preloadResponse.data, computer: null, error: 'Failed to update computer information' }), { ...CORS_HEADERS, status: 500 });
           }
         } catch (error: any) {
-          console.error('Error updating preload/computer information:', error.response?.data || error.message);
+          logger.error({ err: error.response?.data || error.message }, 'Error updating preload/computer information');
+          writeAudit({ action: 'update_info', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, result: 'error', error_detail: String(error.response?.data || error.message) });
           return new Response(`Error updating preload/computer information: ${JSON.stringify(error.response?.data || error.message)}`, { ...CORS_HEADERS, status: 500 });
         }
       }
     },
 
-    "/api/*": {
+    "/api/audit-log": {
+      async GET(req) {
+        const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
+        const limit = parseInt(url.searchParams.get('limit') ?? '100', 10);
+        const entries = getAuditLog(limit);
+        return new Response(JSON.stringify(entries), { ...CORS_HEADERS, status: 200 });
+      }
+    },
+
+    "/api/approvals": {
+      async POST(req) {
+        try {
+          const body = await req.json() as { action: string; justification?: string; deviceSerial: string; deviceId?: string; deviceAssetTag?: string; payload: object };
+          const { action, justification, deviceSerial, deviceId, deviceAssetTag, payload } = body;
+          const requester = getActor(req);
+
+          const id = createApproval({ action, requester, justification, device_serial: deviceSerial, device_id: deviceId, device_asset_tag: deviceAssetTag, payload });
+          logger.info({ action, requester, deviceSerial, justification }, 'Approval request created');
+          return new Response(JSON.stringify({ id }), { ...CORS_HEADERS, status: 201 });
+        } catch (error: any) {
+          return new Response(JSON.stringify({ error: error.message }), { ...CORS_HEADERS, status: 500 });
+        }
+      }
+    },
+
+    "/api/approvals/pending": {
+      async GET() {
+        const pending = getPendingApprovals();
+        return new Response(JSON.stringify({ count: pending.length, items: pending }), { ...CORS_HEADERS, status: 200 });
+      }
+    },
+
+    "/api/approvals/:id/approve": {
+      async POST(req) {
+        try {
+          const id = parseInt(req.params.id, 10);
+          const approver = getActor(req);
+
+          const pending = getPendingApprovals();
+          const approval = (pending as any[]).find((a: any) => a.id === id);
+          if (!approval) {
+            return new Response(JSON.stringify({ error: 'Approval not found or already resolved' }), { ...CORS_HEADERS, status: 404 });
+          }
+
+          if (approval.requester.toLowerCase() === approver.toLowerCase()) {
+            return new Response(JSON.stringify({ error: 'A second admin must approve — you cannot approve your own request' }), { ...CORS_HEADERS, status: 400 });
+          }
+
+          resolveApproval(id, approver, 'approved');
+
+          // Execute the actual action
+          const payload = JSON.parse(approval.payload);
+          let actionResult: Response;
+          if (approval.action === 'wipe') {
+            actionResult = await utils.wipeDevice(payload.computerId);
+          } else if (approval.action === 'retire') {
+            const { computerId, serialNumber, macAddress, altMacAddress } = payload;
+            const token = await utils.getJAMFToken();
+            actionResult = await utils.wipeDevice(computerId);
+            if (actionResult.status === 200) {
+              await axios.delete(`${JAMF_INSTANCE}/api/v1/computers-inventory/${computerId}`, { headers: { Authorization: `Bearer ${token}` } });
+            }
+          } else {
+            actionResult = new Response('Unknown action', { ...CORS_HEADERS, status: 400 });
+          }
+
+          writeAudit({ action: approval.action, actor: `${approval.requester} (req) / ${approver} (appr)`, ip: getIP(req), device_serial: approval.device_serial, device_id: approval.device_id, result: actionResult.status < 300 ? 'success' : 'error' });
+          logger.info({ action: approval.action, requester: approval.requester, approver, deviceSerial: approval.device_serial }, 'Approval executed');
+
+          return new Response(JSON.stringify({ status: 'approved', actionStatus: actionResult.status }), { ...CORS_HEADERS, status: 200 });
+        } catch (error: any) {
+          return new Response(JSON.stringify({ error: error.message }), { ...CORS_HEADERS, status: 500 });
+        }
+      }
+    },
+
+    "/api/approvals/:id/reject": {
+      async POST(req) {
+        try {
+          const id = parseInt(req.params.id, 10);
+          const approver = getActor(req);
+
+          const pending = getPendingApprovals();
+          const approval = (pending as any[]).find((a: any) => a.id === id);
+          if (!approval) {
+            return new Response(JSON.stringify({ error: 'Approval not found or already resolved' }), { ...CORS_HEADERS, status: 404 });
+          }
+
+          resolveApproval(id, approver, 'rejected');
+          writeAudit({ action: `${approval.action}_rejected`, actor: approver, ip: getIP(req), device_serial: approval.device_serial, device_id: approval.device_id, result: 'success' });
+          logger.info({ action: approval.action, requester: approval.requester, approver, deviceSerial: approval.device_serial }, 'Approval rejected');
+
+          return new Response(JSON.stringify({ status: 'rejected' }), { ...CORS_HEADERS, status: 200 });
+        } catch (error: any) {
+          return new Response(JSON.stringify({ error: error.message }), { ...CORS_HEADERS, status: 500 });
+        }
+      }
+    },
+
+    "/api/config": {
+          async GET() {
+            const skip = process.env.SKIP_ENTRA_AUTH === 'true';
+            return new Response(JSON.stringify({ skipEntraAuth: skip }), { ...CORS_HEADERS, status: 200 });
+          }
+        },
+        "/api/*": {
       async OPTIONS() {
         return new Response('CORS preflight', CORS_HEADERS);
       }

@@ -10,9 +10,9 @@
   <link rel="stylesheet" href="./styles.css">
 </head>
 
-<body class="transition-colors min-h-screen" x-data="AlpineData" x-bind:data-theme="theme">
-  <div x-data="AzureAuth">
-    <div class="flex flex-col items-center justify-center min-h-screen absolute inset-0 z-10 bg-base-100" x-show="!isAuthenticated">
+<body class="transition-colors min-h-screen" x-data="AlpineData" x-init="init()" x-bind:data-theme="theme">
+  <div x-data="AzureAuth" x-init="init()">
+    <div class="flex flex-col items-center justify-center min-h-screen absolute inset-0 z-10 bg-base-100" x-show="!isAuthenticated && !$store.skipEntraAuth">
       <button x-show="!isAuthenticated" @click="signIn()" class="btn btn-soft btn-wide text-lg mb-4">
         <svg class="w-5 h-5" aria-label="Microsoft logo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="32" height="32">
           <rect x="32" y="32" width="208" height="208" fill="#f24f23" />
@@ -22,11 +22,11 @@
         </svg>
         Login with Microsoft
       </button>
-      <h1 x-show="!isAuthenticated" class="text-2xl font-bold mb-2 text-center">You need to be authenticated to view this page.</h1>
+      <h1 x-show="!isAuthenticated && !$store.skipEntraAuth" class="text-2xl font-bold mb-2 text-center">You need to be authenticated to view this page.</h1>
       <p x-show="errorMessage" class="text-red-500" x-text="errorMessage"></p>
     </div>
 
-    <div x-show="isAuthenticated">
+    <div x-show="isAuthenticated || $store.skipEntraAuth">
       <!-- Title & toggle theme button -->
       <header class="navbar bg-neutral shadow-md gap-2">
         <div class="navbar-start">
@@ -86,7 +86,11 @@
             <option value="wireframe">Wireframe</option>
             <option value="winter">Winter</option>
           </select>
-          <button @click="signOut()" class="btn btn-soft btn-accent hover:bg-accent/50">Sign Out</button>
+          <button @click="loadAuditLog()" class="btn btn-soft btn-ghost">Audit Log</button>
+          <button x-show="pendingCount > 0" @click="approvalsPanel.open = true; pollPending(); (document.getElementById('approvalsDialog')).showModal()" class="btn btn-sm btn-warning">
+            ⚠ <span x-text="pendingCount"></span> Pending
+          </button>
+          <button x-show="!$store.skipEntraAuth" @click="signOut()" class="btn btn-soft btn-accent hover:bg-accent/50">Sign Out</button>
         </div>
       </header>
 
@@ -214,6 +218,121 @@
       </main>
     </div>
   </div>
+
+  <!-- Approval request dialog (Admin A submits wipe/retire for approval) -->
+  <dialog id="approvalRequestDialog" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg mb-2" x-text="approvalModal.action === 'wipe' ? 'Request Wipe Approval' : 'Request Retire Approval'"></h3>
+      <template x-if="approvalModal.device">
+        <div class="bg-base-200 rounded-box p-3 mb-4 text-sm space-y-1">
+          <p><span class="font-semibold">Serial:</span> <span class="font-mono" x-text="approvalModal.device.serialNumber"></span></p>
+          <p><span class="font-semibold">Asset Tag:</span> <span x-text="approvalModal.device.assetTag"></span></p>
+          <p><span class="font-semibold">Name:</span> <span x-text="approvalModal.device.name"></span></p>
+        </div>
+      </template>
+      <p class="text-sm mb-2">Provide a justification for this action. A second admin must approve before it executes.</p>
+      <textarea class="textarea textarea-bordered w-full" rows="3" placeholder="Reason for wipe (e.g. lost device, end of life, re-imaging...)" x-model="approvalModal.justification"></textarea>
+      <p x-show="approvalModal.error" class="text-error text-sm mt-2" x-text="approvalModal.error"></p>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn btn-ghost">Cancel</button></form>
+        <button class="btn btn-warning" :disabled="approvalModal.submitting" @click="submitApproval()">
+          <span x-text="approvalModal.submitting ? 'Submitting…' : 'Submit for Approval'"></span>
+        </button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Approvals panel (Admin B reviews and acts on pending requests) -->
+  <dialog id="approvalsDialog" class="modal">
+    <div class="modal-box w-11/12 max-w-2xl">
+      <h3 class="font-bold text-lg mb-4">Pending Approvals</h3>
+      <template x-if="pendingApprovals.length === 0">
+        <p class="text-sm text-base-content/60">No pending approvals.</p>
+      </template>
+      <template x-for="item in pendingApprovals" :key="item.id">
+        <div class="border border-base-300 rounded-box p-4 mb-3 space-y-2">
+          <div class="flex justify-between items-start">
+            <div class="flex items-center gap-2">
+              <span class="badge badge-warning" x-text="item.action.toUpperCase()"></span>
+              <span class="font-mono text-sm font-semibold" x-text="item.device_serial"></span>
+              <span class="text-xs text-base-content/60" x-text="`Asset: ${item.device_asset_tag ?? 'N/A'}`"></span>
+            </div>
+            <span class="text-xs text-base-content/60" x-text="item.created_at"></span>
+          </div>
+          <p class="text-sm"><span class="font-semibold">Requested by:</span> <span x-text="item.requester"></span></p>
+          <p class="text-sm"><span class="font-semibold">Justification:</span> <span class="italic" x-text="item.justification || 'No justification provided'"></span></p>
+          <div class="flex gap-2 justify-end pt-1">
+            <button class="btn btn-sm btn-error btn-outline" @click="rejectRequest(item.id)">Reject</button>
+            <button class="btn btn-sm btn-success" @click="approveRequest(item.id)">Approve &amp; Execute</button>
+          </div>
+        </div>
+      </template>
+      <p x-show="approvalsPanel.error" class="text-error text-sm mt-2" x-text="approvalsPanel.error"></p>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn">Close</button></form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Audit log dialog -->
+  <dialog id="auditLogDialog" class="modal">
+    <div class="modal-box w-11/12 max-w-4xl">
+      <h3 class="font-bold text-lg mb-4">Audit Log</h3>
+      <div class="overflow-x-auto max-h-96">
+        <table class="table table-xs table-zebra w-full">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Actor</th>
+              <th>Action</th>
+              <th>Device</th>
+              <th>Result</th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="entry in auditLog" :key="entry.id">
+              <tr>
+                <td class="font-mono text-xs" x-text="entry.timestamp"></td>
+                <td x-text="entry.actor ?? '—'"></td>
+                <td><span class="badge badge-sm" :class="entry.result === 'success' ? 'badge-success' : 'badge-error'" x-text="entry.action"></span></td>
+                <td class="font-mono text-xs" x-text="entry.device_serial ?? entry.device_id ?? '—'"></td>
+                <td x-text="entry.result"></td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-action">
+        <form method="dialog"><button class="btn">Close</button></form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- Confirmation modal -->
+  <dialog id="confirmDialog" class="modal">
+    <div class="modal-box">
+      <h3 class="font-bold text-lg mb-4" x-text="confirmModal.title"></h3>
+      <ul class="list-disc list-inside space-y-1">
+        <template x-for="(line, i) in confirmModal.lines" :key="i">
+          <li class="text-sm" x-text="line"></li>
+        </template>
+      </ul>
+      <div class="modal-action">
+        <form method="dialog">
+          <button class="btn btn-ghost">Cancel</button>
+        </form>
+        <button class="btn btn-error" @click="document.getElementById('confirmDialog').close(); if (confirmModal.onConfirm) confirmModal.onConfirm()">
+          Confirm
+        </button>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop">
+      <button>close</button>
+    </form>
+  </dialog>
 
   <script type="module" src="main.js" defer></script>
 </body>

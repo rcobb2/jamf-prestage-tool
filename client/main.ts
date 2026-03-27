@@ -4,9 +4,16 @@ import AlpinePersist from "@alpinejs/persist";
 import axios, { type AxiosResponse } from 'axios';
 import AzureAuth from "./azure-auth.ts";
 
+
+
 // Set up axios defaults
-const apiURL = `https://${process.env.SERVER_API_HOSTNAME}:${process.env.SERVER_API_PORT}/api`;
+const apiURL = `https://${window.location.hostname}:8443/api`;
 axios.defaults.baseURL = apiURL;
+
+// Pass a dev placeholder for SKIP_ENTRA_AUTH mode; MSAL mode sets this after login via AzureAuth
+if (process.env.SKIP_ENTRA_AUTH === 'true') {
+  axios.defaults.headers.common['X-User-Name'] = 'dev-user';
+}
 
 type ComputerInfo = {
   assetTag: number,
@@ -36,12 +43,110 @@ function createAlpineData() {
     dataIndex: 0,
     totalPages: 0,
     currentPage: 0,
-    updateToPrestage: 0,
+      updateToPrestage: 0,
     showPrestageDropdown: false,
+    confirmModal: {
+      title: '',
+      lines: [] as string[],
+      onConfirm: null as (() => Promise<void>) | null,
+    },
+    approvalModal: {
+      open: false,
+      action: '' as 'wipe' | 'retire' | '',
+      device: null as ComputerInfo | null,
+      justification: '',
+      submitting: false,
+      error: '',
+    },
+    approvalsPanel: {
+      open: false,
+      error: '',
+    },
+    pendingApprovals: [] as any[],
+    pendingCount: 0,
+    auditLog: [] as any[],
+    auditLogOpen: false,
+    _pollInterval: null as any,
+      // SKIP_ENTRA_AUTH is inlined at build time by Bun (env: 'inline' in worker.ts)
+      skipEntraAuth: process.env.SKIP_ENTRA_AUTH === 'true',
 
     get currentData() {
       return this.dataList[this.dataIndex] || {};
     },
+
+    async init() {
+      await this.pollPending();
+      this._pollInterval = setInterval(() => this.pollPending(), 30000);
+    },
+
+    async pollPending() {
+      try {
+        const resp = await axios.get('/approvals/pending');
+        this.pendingApprovals = resp.data.items ?? [];
+        this.pendingCount = resp.data.count ?? 0;
+      } catch { /* non-fatal */ }
+    },
+
+    async loadAuditLog() {
+      try {
+        const resp = await axios.get('/audit-log?limit=100');
+        this.auditLog = resp.data;
+        this.auditLogOpen = true;
+        (document.getElementById('auditLogDialog') as HTMLDialogElement).showModal();
+      } catch { /* non-fatal */ }
+    },
+
+    async submitApproval() {
+      const modal = this.approvalModal;
+      if (!modal.device || !modal.justification.trim()) { modal.error = 'A justification is required.'; return; }
+      modal.submitting = true;
+      modal.error = '';
+      try {
+        const device = modal.device;
+        await axios.post('/approvals', {
+          action: modal.action,
+          justification: modal.justification.trim(),
+          deviceSerial: device.serialNumber,
+          deviceId: String(device.computerId),
+          deviceAssetTag: String(device.assetTag),
+          payload: { computerId: String(device.computerId), serialNumber: device.serialNumber, macAddress: device.macAddress, altMacAddress: device.altMacAddress },
+        });
+        (document.getElementById('approvalRequestDialog') as HTMLDialogElement).close();
+        this.successMessage = `${modal.action === 'wipe' ? 'Wipe' : 'Retire'} request submitted. Awaiting second admin approval.`;
+        await this.pollPending();
+      } catch (err: any) {
+        modal.error = err.response?.data?.error ?? 'Failed to submit request.';
+      } finally {
+        modal.submitting = false;
+      }
+    },
+
+    async approveRequest(id: number) {
+      const panel = this.approvalsPanel;
+      panel.error = '';
+      try {
+        await axios.post(`/approvals/${id}/approve`);
+        await this.pollPending();
+        this.successMessage = 'Action approved and executed.';
+        if (this.pendingCount === 0) (document.getElementById('approvalsDialog') as HTMLDialogElement).close();
+      } catch (err: any) {
+        panel.error = err.response?.data?.error ?? 'Failed to approve.';
+      }
+    },
+
+    async rejectRequest(id: number) {
+      const panel = this.approvalsPanel;
+      panel.error = '';
+      try {
+        await axios.post(`/approvals/${id}/reject`);
+        await this.pollPending();
+        this.successMessage = 'Request rejected.';
+        if (this.pendingCount === 0) (document.getElementById('approvalsDialog') as HTMLDialogElement).close();
+      } catch (err: any) {
+        panel.error = err.response?.data?.error ?? 'Failed to reject.';
+      }
+    },
+
     prev() {
       this.dataIndex = (this.dataIndex - 1 + this.dataList.length) % this.dataList.length;
     },
@@ -94,134 +199,78 @@ function createAlpineData() {
     },
 
     async send() {
-      try {
-        const original = this.dataListCopy[this.dataIndex];
-        const current = this.dataList[this.dataIndex];
+      const original = this.dataListCopy[this.dataIndex];
+      const current = this.dataList[this.dataIndex];
+      if (!current) { this.errorMessage = 'No data to update.'; this.successMessage = ''; return; }
 
-        if (!current) {
-          this.errorMessage = 'No data to update.';
-          this.successMessage = '';
-          return;
-        }
+      const EDITABLE = ['username', 'email', 'building', 'room', 'assetTag'] as const;
+      const fieldLines: string[] = EDITABLE
+        .filter(k => String((current as any)[k] ?? '') !== String((original as any)[k] ?? ''))
+        .map(k => `${k}: "${(original as any)[k] ?? ''}" → "${(current as any)[k] ?? ''}"`);
 
-        const hasChanges = JSON.stringify(current) !== JSON.stringify(original);
-        const hasPrestageUpdate = this.updateToPrestage !== 0;
+      const hasPrestageUpdate = this.updateToPrestage !== 0;
+      const prestageLines: string[] = hasPrestageUpdate
+        ? [`Prestage: "${original.currentPrestage}" → "${current.currentPrestage}"`]
+        : [];
 
-        if (!hasChanges && !hasPrestageUpdate) {
-          this.errorMessage = 'No changes to update.';
-          this.successMessage = '';
-          return;
-        }
+      const lines = [...fieldLines, ...prestageLines];
+      if (lines.length === 0) { this.errorMessage = 'No changes to update.'; this.successMessage = ''; return; }
 
-        if (hasPrestageUpdate) {
-          // Add to target prestage (server will handle removing from current if needed)
-          await axios.post(`/change-prestage/${this.searchType}/${this.updateToPrestage}/${current.serialNumber}`);
-        }
-
-        if (hasChanges) {
-          Object.keys(current).forEach(key => {
-            if (current[key as keyof ComputerInfo] === null) {
-              (current as any)[key] = '';
-            }
-          });
-          
-          // Look up buildingId from building name
-          let buildingId: number | undefined;
-          if (current.building && current.building !== 'N/A' && current.building !== '') {
-            try {
-              const buildingsResponse = await axios.get('/buildings');
-              const buildings = buildingsResponse.data as Array<{ name: string; id: string; }>;
-              const matchingBuilding = buildings.find(b => b.name === current.building);
-              if (matchingBuilding) {
-                buildingId = parseInt(matchingBuilding.id, 10);
-              }
-            } catch (err) {
-              console.warn('Could not fetch buildings to lookup buildingId:', err);
-            }
+      this.showConfirm('Confirm Changes', lines, async () => {
+        try {
+          if (hasPrestageUpdate) {
+            await axios.post(`/change-prestage/${this.searchType}/${this.updateToPrestage}/${current.serialNumber}`);
           }
-          
-          // Add buildingId to the payload
-          const payload = { ...current, buildingId };
-          
-          await axios.put(`/update-info/${this.searchType}/${encodeURIComponent(current.preloadId)}/${encodeURIComponent(current.computerId)}`, payload)
-            .catch((error: any) => {
-              console.error(`Error updating preload: ${error.response?.data || error.message}`);
-              throw error;
+          if (fieldLines.length > 0) {
+            Object.keys(current).forEach(key => {
+              if ((current as any)[key] === null) (current as any)[key] = '';
             });
+            let buildingId: number | undefined;
+            if (current.building && current.building !== 'N/A' && current.building !== '') {
+              try {
+                const buildingsResponse = await axios.get('/buildings');
+                const buildings = buildingsResponse.data as Array<{ name: string; id: string; }>;
+                const match = buildings.find(b => b.name === current.building);
+                if (match) buildingId = parseInt(match.id, 10);
+              } catch { /* non-fatal */ }
+            }
+            await axios.put(`/update-info/${this.searchType}/${encodeURIComponent(current.preloadId)}/${encodeURIComponent(current.computerId)}`, { ...current, buildingId });
+          }
+          this.dataList[this.dataIndex] = { ...current };
+          this.dataListCopy[this.dataIndex] = { ...current };
+          this.errorMessage = '';
+          this.successMessage = 'Data updated successfully.';
+        } catch (error: any) {
+          this.errorMessage = `An error occurred while sending data. Error: ${error.response?.status ?? 'unknown'}`;
         }
-
-        // Reset update fields
-        // this.updateToPrestage = 0;
-        // this.updateToBuilding = '';
-
-        // Update data lists with modified data
-        this.dataList[this.dataIndex] = { ...current };
-        this.dataListCopy[this.dataIndex] = { ...current };
-
-        // Clear errors and set success message
-        this.errorMessage = '';
-        this.successMessage = hasChanges || hasPrestageUpdate ? 'Data updated successfully.' : '';
-      } catch (error: any) {
-        this.errorMessage = `An error occurred while sending data. Error: ${error.response?.status ?? 'unknown'}`;
-      }
+      });
     },
 
     async erase() {
-      try {
-        const current = this.dataList[this.dataIndex];
-        if (!current) {
-          this.errorMessage = 'No data to erase.';
-          this.successMessage = '';
-          return;
-        }
-
-        if (!window.confirm('Are you sure you want to wipe this device? This action cannot be undone.')) {
-          return;
-        }
-
-        await axios.delete(`/wipedevice/${current.computerId}`)
-          .catch((error: any) => {
-            console.error('Error wiping device:', error.response?.data || error.message);
-            throw error;
-          });
-        this.errorMessage = '';
-        this.successMessage = 'Device wipe sent.';
-        this.dataList.splice(this.dataIndex, 1);
-        this.dataListCopy.splice(this.dataIndex, 1);
-        this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
-      } catch (error: any) {
-        this.errorMessage = `An error occurred while erasing data. Error: ${error.response?.status ?? 'unknown'}`;
-        this.successMessage = '';
-      }
+      const current = this.dataList[this.dataIndex];
+      if (!current) { this.errorMessage = 'No data to erase.'; this.successMessage = ''; return; }
+      this.approvalModal.action = 'wipe';
+      this.approvalModal.device = current;
+      this.approvalModal.justification = '';
+      this.approvalModal.error = '';
+      (document.getElementById('approvalRequestDialog') as HTMLDialogElement).showModal();
     },
 
     async retire() {
-      try {
-        const current = this.dataList[this.dataIndex];
-        if (!current) {
-          this.errorMessage = 'No data to retire.';
-          this.successMessage = '';
-          return;
-        }
+      const current = this.dataList[this.dataIndex];
+      if (!current) { this.errorMessage = 'No data to retire.'; this.successMessage = ''; return; }
+      this.approvalModal.action = 'retire';
+      this.approvalModal.device = current;
+      this.approvalModal.justification = '';
+      this.approvalModal.error = '';
+      (document.getElementById('approvalRequestDialog') as HTMLDialogElement).showModal();
+    },
 
-        if (!window.confirm('Are you sure you want to retire this device? This action cannot be undone.')) {
-          return;
-        }
-
-        await axios.delete(`/retiredevice/${current.computerId}/${(current.serialNumber)}/${current.macAddress}/${current.altMacAddress}`)
-          .catch((error: any) => {
-            console.error('Error retiring device:', error.response?.data || error.message);
-            throw error;
-          });
-        this.errorMessage = '';
-        this.successMessage = 'Device retired successfully.';
-        this.dataList.splice(this.dataIndex, 1);
-        this.dataListCopy.splice(this.dataIndex, 1);
-        this.dataIndex = Math.min(this.dataIndex, this.dataList.length - 1);
-      } catch (error: any) {
-        this.errorMessage = `An error occurred while retiring data. Error: ${error.response?.status ?? 'unknown'}`;
-        this.successMessage = '';
-      }
+    showConfirm(title: string, lines: string[], callback: () => Promise<void>) {
+      this.confirmModal.title = title;
+      this.confirmModal.lines = lines;
+      this.confirmModal.onConfirm = callback;
+      (document.getElementById('confirmDialog') as HTMLDialogElement).showModal();
     },
   }
 }
@@ -279,6 +328,7 @@ function fetchBuildings() {
 
 // @ts-ignore
 window.Alpine = Alpine;
+Alpine.store('skipEntraAuth', process.env.SKIP_ENTRA_AUTH === 'true');
 
 // Register Alpine components
 Alpine.data('AzureAuth', AzureAuth);
