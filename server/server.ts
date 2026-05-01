@@ -226,7 +226,10 @@ const server: Bun.Server = Bun.serve({
                   `${JAMF_INSTANCE}/api/v1/device-enrollments/${instance.id}/devices`,
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
-                return devicesRes.data.results.filter(device => device.serialNumber === search);
+                const normalizedSearch = search.toUpperCase();
+                return devicesRes.data.results.filter(device =>
+                  device.serialNumber?.toUpperCase().includes(normalizedSearch)
+                );
               })
             );
 
@@ -241,9 +244,10 @@ const server: Bun.Server = Bun.serve({
                 const preload = preloadRes.data.results[0] || null;
 
                 return {
+                  computerId: 'none',
                   assetTag: preload?.assetTag || 'N/A',
                   serialNumber: device.serialNumber,
-                  preloadId: preload?.id || 'N/A',
+                  preloadId: preload?.id || 'none',
                   username: preload?.username || null,
                   building: preload?.building || 'N/A',
                   room: preload?.room || null,
@@ -494,21 +498,18 @@ const server: Bun.Server = Bun.serve({
 
         try {
           const token = await utils.getJAMFToken();
-          const preloadApiUrl =
-            preloadId === 'undefined' || preloadId === 'N/A'
-              ? `${JAMF_INSTANCE}/api/v2/inventory-preload/records` // Create new preload record
-              : `${JAMF_INSTANCE}/api/v2/inventory-preload/records/${preloadId}`; // Update existing preload record
-          const preloadMethod =
-            preloadId === 'undefined' || preloadId === 'N/A'
-              ? 'post' // If preloadId is not defined, create a new preload record
-              : 'put'; // If preloadId is defined, update the existing record
+          const noPreload = preloadId === 'undefined' || preloadId === 'N/A' || preloadId === 'none';
+          const preloadApiUrl = noPreload
+              ? `${JAMF_INSTANCE}/api/v2/inventory-preload/records`
+              : `${JAMF_INSTANCE}/api/v2/inventory-preload/records/${preloadId}`;
+          const preloadMethod = noPreload ? 'post' : 'put';
 
           const preloadResponse = await axios[preloadMethod](preloadApiUrl, preloadData, {
             headers: { Authorization: `Bearer ${token}` }
           });
 
           // Update device inventory (mobile or computer)
-          if (computerId === 'undefined' || computerId === 'N/A') {
+          if (computerId === 'undefined' || computerId === 'N/A' || computerId === 'none') {
             writeAudit({ action: 'update_info', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, details: { username, email: emailAddress || email, building, room, assetTag }, result: 'success' });
             return new Response(JSON.stringify({ preload: preloadResponse.data, device: null }), { ...CORS_HEADERS, status: 200 });
           }

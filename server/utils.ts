@@ -161,7 +161,8 @@ export async function deleteClearpassMAC(macAddress: string): Promise<any> {
 // Function to match computers by serial number or name or id, etc.
 export async function matchComputer(search: string): Promise<ComputerMatch[]> {
   const token = await getJAMFToken();
-  const wildcard = search.includes('*') ? search : `${search}*`;
+  const normalized = search.toUpperCase();
+  const wildcard = normalized.includes('*') ? normalized : `*${normalized}*`;
   const apiUrl = `${JAMF_INSTANCE}/JSSResource/computers/match/${wildcard}`;
   const response = await axios.get(apiUrl, {
     headers: { Authorization: `Bearer ${token}` }
@@ -233,7 +234,8 @@ export type MobileDeviceMatch = { id: number; serial_number: string; };
 // Function to match mobile devices based on search query
 export async function matchMobileDevice(search: string): Promise<MobileDeviceMatch[]> {
   const token = await getJAMFToken();
-  const wildcard = search.includes('*') ? search : `${search}*`;
+  const normalized = search.toUpperCase();
+  const wildcard = normalized.includes('*') ? normalized : `*${normalized}*`;
   const apiUrl = `${JAMF_INSTANCE}/JSSResource/mobiledevices/match/${wildcard}`;
   const response = await axios.get(apiUrl, {
     headers: { Authorization: `Bearer ${token}` }
