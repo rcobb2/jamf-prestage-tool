@@ -7,17 +7,6 @@ import { writeAudit, getAuditLog, createApproval, getPendingApprovals, resolveAp
 import * as utils from "./utils.ts";
 import { CORS_HEADERS, type JAMFResponse } from "./utils.ts";
 
-// Parse local admin accounts from ADMIN_ACCOUNTS env var: "alice:1234,bob:5678"
-const ADMIN_ACCOUNTS: Record<string, string> = {};
-(process.env.ADMIN_ACCOUNTS ?? '').split(',').forEach(entry => {
-  const [user, pin] = entry.trim().split(':');
-  if (user && pin) ADMIN_ACCOUNTS[user.toLowerCase()] = pin;
-});
-
-function validateAccount(username: string, pin: string): boolean {
-  return !!ADMIN_ACCOUNTS[username.toLowerCase()] && ADMIN_ACCOUNTS[username.toLowerCase()] === pin;
-}
-
 function getActor(req: Request): string {
   return req.headers.get('X-User-Name') ?? 'unknown';
 }
@@ -80,10 +69,16 @@ const server: Bun.Server = Bun.serve({
         const { serialNumber, prestageId, deviceType } = req.params;
         logger.info(`Adding ${deviceType} device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
 
+        // Validate serial number format before making any API calls
+        const serialRegex = /^[A-Z0-9]{6,}$/i;
+        if (!serialRegex.test(serialNumber)) {
+          return new Response('Invalid serial number format', { ...CORS_HEADERS, status: 400 });
+        }
+
         try {
           const isMobileDevice = deviceType === 'mobiledevices';
           const token = await utils.getJAMFToken();
-          
+
           // First, find current prestage assignment
           const currentPrestage = isMobileDevice
             ? await utils.getMobilePrestageAssignments(serialNumber)
@@ -133,13 +128,7 @@ const server: Bun.Server = Bun.serve({
           const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
           const dryRun = url.searchParams.get('dryRun') === 'true';
 
-          // Validate serial number format (Apple serials are alphanumeric, 8-12 chars)
-          const serialRegex = /^[A-Z0-9]{6,}$/i;
-          if (!serialRegex.test(serialNumber)) {
-            return new Response('Invalid serial number format', { ...CORS_HEADERS, status: 400 });
-          }
-
-           // Use helper to add device (handles dry-run and POST)
+           // Use helper to add device (handles dry-run and PUT)
            const addResult = await utils.addDeviceToPrestage(prestage.id, serialNumber, isMobileDevice, token, prestage.versionLock, dryRun);
            writeAudit({ action: 'prestage_change', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, details: { prestageId, prestage: prestage.displayName, dryRun }, result: 'success' });
            return new Response(JSON.stringify(addResult), { ...CORS_HEADERS, status: 200 });
@@ -193,11 +182,21 @@ const server: Bun.Server = Bun.serve({
       async GET() {
         try {
           const token = await utils.getJAMFToken();
-          const apiUrl = `${JAMF_INSTANCE}/api/v1/buildings?page=0&page-size=100&sort=id%3Aasc`;
-          const response = await axios.get<{ results: any[] }>(apiUrl, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          return new Response(JSON.stringify(response.data.results), { ...CORS_HEADERS, status: 200 });
+          const pageSize = 100;
+          let page = 0;
+          const all: any[] = [];
+
+          while (true) {
+            const apiUrl = `${JAMF_INSTANCE}/api/v1/buildings?page=${page}&page-size=${pageSize}&sort=id%3Aasc`;
+            const response = await axios.get<{ totalCount: number; results: any[] }>(apiUrl, {
+              headers: { Authorization: `Bearer ${token}` }
+            });
+            all.push(...response.data.results);
+            if (all.length >= response.data.totalCount || response.data.results.length < pageSize) break;
+            page++;
+          }
+
+          return new Response(JSON.stringify(all), { ...CORS_HEADERS, status: 200 });
         } catch {
           return new Response('Failed to fetch buildings', { ...CORS_HEADERS, status: 500 });
         }
@@ -312,6 +311,9 @@ const server: Bun.Server = Bun.serve({
             return new Response('No mobile device found', { ...CORS_HEADERS, status: 404 });
           }
 
+          // Build the full serial→prestage map once (parallel scope fetches) before iterating devices
+          const prestageScopeMap = await utils.buildMobilePrestageScopeMap();
+
           // Fetch mobile device details
           results = await Promise.all(
             mobileDevices.map(async ({ id, serial_number }) => {
@@ -334,7 +336,7 @@ const server: Bun.Server = Bun.serve({
                 { headers: { Authorization: `Bearer ${token}` } }
               );
 
-              const prestage = await utils.getMobilePrestageAssignments(serial_number);
+              const prestageName = prestageScopeMap.get(serial_number) ?? 'N/A';
               const preloadRes = await axios.get<{ results: any[] }>(
                 `${JAMF_INSTANCE}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${serial_number}`,
                 { headers: { Authorization: `Bearer ${token}` } }
@@ -352,7 +354,7 @@ const server: Bun.Server = Bun.serve({
                 altMacAddress: device.bluetoothMacAddress || 'N/A',
                 enrollmentMethod: device.enrollmentMethod || 'No enrollment method found',
                 serialNumber: device.serialNumber,
-                currentPrestage: prestage.displayName,
+                currentPrestage: prestageName,
                 preloadId: preload.id,
                 username: preload.username || location.username || 'N/A',
                 email: preload.emailAddress || location.emailAddress || 'N/A',
@@ -389,74 +391,9 @@ const server: Bun.Server = Bun.serve({
         // return new Response('Retiring device is not implemented.', { ...CORS_HEADERS, status: 501 });
 
         try {
-          // First, wipe the device using JAMF API
-          const jamfWipeResp = await utils.wipeDevice(computerId);
-          if (jamfWipeResp.status !== 200) {
-            return new Response(`Failed to wipe device on JAMF: ${jamfWipeResp.status} ${await jamfWipeResp.text()}`, { ...CORS_HEADERS, status: 500 });
-          }
-
-          // Get JAMF API token and retire (delete) the device from JAMF
-          const token = await utils.getJAMFToken();
-          const jamfResp = await axios.delete(`${JAMF_INSTANCE}/api/v1/computers-inventory/${computerId}`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-
-          if (jamfResp.status !== 204) {
-            return new Response(`Failed to retire device on JAMF: ${jamfResp.status} ${jamfResp.data}`, { ...CORS_HEADERS, status: 500 });
-          }
-
-          // Start a GLPI session to update the device state
-          const glpiTokenResp = await utils.getGLPIToken();
-          const sessionToken = glpiTokenResp.data.session_token;
-          if (!sessionToken) {
-            return new Response('Failed to get GLPI session token', { ...CORS_HEADERS, status: 500 });
-          }
-
-          logger.info('GLPI not in use yet, skipping GLPI retirement steps.');
-          // Search for the computer in GLPI by serial number
-          const params = new URLSearchParams({
-            'criteria[0][field]': '5', // Field 5 is usually serial number in GLPI
-            'criteria[0][searchtype]': 'contains',
-            'criteria[0][value]': `^${serialNumber}$`,
-          });
-
-          const searchResp = await axios.get(`${GLPI_INSTANCE}/search/Computer`, {
-            headers: {
-              'Content-Type': 'application/json',
-              'App-Token': GLPI_APP_TOKEN,
-              'Session-Token': sessionToken,
-            },
-            params,
-          });
-
-          // Ensure exactly one computer is found in GLPI
-          // Update the computer state in GLPI to "Out of Service > Salvaged" (state ID 18)
-          if (searchResp.data.totalcount === 1) {
-            const computerIdGLPI = searchResp.data.data[0][2];
-            await axios.put(`${GLPI_INSTANCE}/Computer/${computerIdGLPI}`, {
-              input: { states_id: 18 } // 18 is the ID for "Out of Service > Salvaged"
-            }, {
-              headers: {
-                "Content-Type": "application/json",
-                "App-Token": GLPI_APP_TOKEN,
-                "Session-Token": sessionToken,
-              },
-            });
-          } else {
-            return new Response('Computer not found or multiple found in GLPI', { ...CORS_HEADERS, status: 500 });
-          }
-
-          // Cleanup GLPI session
-          logger.info('Cleaning up GLPI session...');
-          const cleanup = await utils.cleanupGLPI(sessionToken);
-          logger.info({ status: cleanup.status }, 'GLPI session cleanup response');
-
-          // Remove MAC address from Clearpass
-          if (macAddress && altMacAddress) {
-            logger.info({ macAddress }, 'Deleting primary MAC from Clearpass');
-            await utils.deleteClearpassMAC(macAddress);
-            logger.info({ altMacAddress }, 'Deleting secondary MAC from Clearpass');
-            await utils.deleteClearpassMAC(altMacAddress);
+          const result = await utils.retireDevice(computerId, serialNumber, macAddress, altMacAddress);
+          if (!result.ok) {
+            return new Response(result.message ?? 'Retirement failed', { ...CORS_HEADERS, status: 500 });
           }
 
           writeAudit({ action: 'retire', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, result: 'success' });
@@ -575,7 +512,7 @@ const server: Bun.Server = Bun.serve({
     "/api/audit-log": {
       async GET(req) {
         const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
-        const limit = parseInt(url.searchParams.get('limit') ?? '100', 10);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '100', 10) || 100, 500);
         const entries = getAuditLog(limit);
         return new Response(JSON.stringify(entries), { ...CORS_HEADERS, status: 200 });
       }
@@ -624,16 +561,25 @@ const server: Bun.Server = Bun.serve({
 
           // Execute the actual action
           const payload = JSON.parse(approval.payload);
+          if (!payload || typeof payload !== 'object') {
+            return new Response(JSON.stringify({ error: 'Invalid approval payload' }), { ...CORS_HEADERS, status: 500 });
+          }
           let actionResult: Response;
           if (approval.action === 'wipe') {
+            if (!payload.computerId) {
+              return new Response(JSON.stringify({ error: 'Approval payload missing computerId' }), { ...CORS_HEADERS, status: 500 });
+            }
             actionResult = await utils.wipeDevice(payload.computerId);
           } else if (approval.action === 'retire') {
             const { computerId, serialNumber, macAddress, altMacAddress } = payload;
-            const token = await utils.getJAMFToken();
-            actionResult = await utils.wipeDevice(computerId);
-            if (actionResult.status === 200) {
-              await axios.delete(`${JAMF_INSTANCE}/api/v1/computers-inventory/${computerId}`, { headers: { Authorization: `Bearer ${token}` } });
+            if (!computerId || !serialNumber) {
+              return new Response(JSON.stringify({ error: 'Approval payload missing computerId or serialNumber' }), { ...CORS_HEADERS, status: 500 });
             }
+            const result = await utils.retireDevice(computerId, serialNumber, macAddress, altMacAddress);
+            actionResult = new Response(
+              result.ok ? JSON.stringify({ status: 'retired' }) : JSON.stringify({ error: result.message }),
+              { ...CORS_HEADERS, status: result.ok ? 200 : 500 }
+            );
           } else {
             actionResult = new Response('Unknown action', { ...CORS_HEADERS, status: 400 });
           }

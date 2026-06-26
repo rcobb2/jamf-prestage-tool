@@ -1,7 +1,17 @@
+import { resolve } from 'path';
+
 await Bun.build({
   entrypoints: ['./main.ts'],
   outdir: './client/',
-  env: 'inline',
+  // Explicit allowlist — never use 'inline' which would bundle every env var (including secrets)
+  env: {
+    SKIP_ENTRA_AUTH: process.env.SKIP_ENTRA_AUTH ?? '',
+    AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ?? '',
+    AZURE_AUTHORITY: process.env.AZURE_AUTHORITY ?? '',
+    CLIENT_HOSTNAME: process.env.CLIENT_HOSTNAME ?? '',
+    CLIENT_PORT: process.env.CLIENT_PORT ?? '',
+    THEME: process.env.THEME ?? '',
+  },
   target: 'browser',
   format: 'esm',
   sourcemap: 'none',
@@ -31,10 +41,13 @@ const server = Bun.serve({
       });
     }
 
-    // Serve static files from the client directory
-    const filePath = `/app/client${path}`;
+    // Serve static files from the client directory — resolve to prevent path traversal
+    const filePath = resolve('/app/client', '.' + path);
+    if (!filePath.startsWith('/app/client/')) {
+      return new Response('Forbidden', { status: 403 });
+    }
     const file = Bun.file(filePath);
-    
+
     if (await file.exists()) {
       return new Response(file, {
         headers: { "Cache-Control": "no-store" },
