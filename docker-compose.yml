@@ -29,7 +29,6 @@ services:
       - .env
     volumes:
       - ./server:/app
-      - ./audit.db:/app/audit.db
       - ./certs/server.cert:/app/server.cert:ro
       - ./certs/server.key:/app/server.key:ro
     ports:
