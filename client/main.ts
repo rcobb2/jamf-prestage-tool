@@ -7,7 +7,11 @@ import AzureAuth from "./azure-auth.ts";
 
 
 // Set up axios defaults
-const apiURL = `https://${window.location.hostname}:8443/api`;
+// SERVER_API_HOSTNAME/PORT let a reverse proxy (e.g. Caddy) put the client and API on the
+// same public origin; unset, this falls back to the direct-to-container dev default.
+const apiHost = process.env.SERVER_API_HOSTNAME || window.location.hostname;
+const apiPort = process.env.SERVER_API_PORT || '8443';
+const apiURL = `https://${apiHost}:${apiPort}/api`;
 axios.defaults.baseURL = apiURL;
 
 // Pass a dev placeholder for SKIP_ENTRA_AUTH mode; MSAL mode sets this after login via AzureAuth

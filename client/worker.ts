@@ -11,6 +11,8 @@ await Bun.build({
     CLIENT_HOSTNAME: process.env.CLIENT_HOSTNAME ?? '',
     CLIENT_PORT: process.env.CLIENT_PORT ?? '',
     THEME: process.env.THEME ?? '',
+    SERVER_API_HOSTNAME: process.env.SERVER_API_HOSTNAME ?? '',
+    SERVER_API_PORT: process.env.SERVER_API_PORT ?? '',
   },
   target: 'browser',
   format: 'esm',
@@ -21,14 +23,24 @@ await Bun.build({
 
 console.log('Client build completed successfully.');
 
+// TLS is only enabled when cert/key files are present (self-signed local/docker-compose dev).
+// Behind a reverse proxy (e.g. Caddy in prod) no certs are provided and this serves plain HTTP.
+const hasTls = await Bun.file("server.cert").exists() && await Bun.file("server.key").exists();
+
+// CLIENT_BIND_HOST/PORT decouple the container's actual listen address from
+// CLIENT_HOSTNAME/PORT (the public address baked into the browser bundle above),
+// so a reverse proxy can front a different public host/port. Both fall back to the
+// public values, so single-host/no-proxy setups are unaffected.
 const server = Bun.serve({
   development: false,
-  hostname: process.env.CLIENT_HOSTNAME || "localhost",
-  port: process.env.CLIENT_PORT || 3000,
-  tls: {
-    key: Bun.file("server.key"),
-    cert: Bun.file("server.cert"),
-  },
+  hostname: process.env.CLIENT_BIND_HOST || process.env.CLIENT_HOSTNAME || "localhost",
+  port: process.env.CLIENT_BIND_PORT || process.env.CLIENT_PORT || 3000,
+  ...(hasTls ? {
+    tls: {
+      key: Bun.file("server.key"),
+      cert: Bun.file("server.cert"),
+    },
+  } : {}),
   async fetch(req) {
     const url = new URL(req.url);
     const path = url.pathname;

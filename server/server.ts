@@ -25,22 +25,34 @@ const {
 
   SERVER_API_HOSTNAME,
   SERVER_API_PORT,
+
+  // Decoupled from the two above: SERVER_API_HOSTNAME/PORT are the public address baked into
+  // the browser bundle, while these control what the container actually binds to behind a
+  // reverse proxy. Both fall back to the public values so single-host/no-proxy setups are unaffected.
+  SERVER_BIND_HOST,
+  SERVER_BIND_PORT,
 } = process.env;
 
 // Set default headers for axios
 axios.defaults.headers.common["Accept"] = "application/json";
 axios.defaults.headers.common["Content-Type"] = "application/json";
 
+// TLS is only enabled when cert/key files are present (self-signed local/docker-compose dev).
+// Behind a reverse proxy (e.g. Caddy in prod) no certs are provided and this serves plain HTTP.
+const hasTls = await Bun.file("server.cert").exists() && await Bun.file("server.key").exists();
+
 // Main handler
 // @ts-ignore
 const server: Bun.Server = Bun.serve({
   development: false,
-  hostname: SERVER_API_HOSTNAME || "localhost",
-  port: SERVER_API_PORT || 3001,
-  tls: {
-    key: Bun.file("server.key"),
-    cert: Bun.file("server.cert"),
-  },
+  hostname: SERVER_BIND_HOST || SERVER_API_HOSTNAME || "localhost",
+  port: SERVER_BIND_PORT || SERVER_API_PORT || 3001,
+  ...(hasTls ? {
+    tls: {
+      key: Bun.file("server.key"),
+      cert: Bun.file("server.cert"),
+    },
+  } : {}),
   routes: {
     "/api/prestages": {
       async GET() {
