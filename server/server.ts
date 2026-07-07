@@ -237,14 +237,11 @@ const server: Bun.Server = Bun.serve({
 
             const enrollmentDevices = await Promise.all(
               enrollmentsRes.data.results.map(async (instance) => {
-                const devicesRes = await axios.get<{ results: any[] }>(
-                  `${JAMF_INSTANCE}/api/v1/device-enrollments/${instance.id}/devices`,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                );
+                const devices = await utils.getADEEnrolledDevices(instance.id);
                 const normalizedSearch = search.toUpperCase();
                 // Device enrollments cover ALL ADE devices (Macs, iPads, iPhones,
                 // Apple TVs) — keep only Macs out of this computer search.
-                return devicesRes.data.results.filter(device =>
+                return devices.filter(device =>
                   device.serialNumber?.toUpperCase().includes(normalizedSearch) &&
                   !MOBILE_MODEL_PATTERN.test((device.model ?? '').toUpperCase())
                 );
@@ -339,14 +336,11 @@ const server: Bun.Server = Bun.serve({
 
             const enrollmentDevices = await Promise.all(
               enrollmentsRes.data.results.map(async (instance) => {
-                const devicesRes = await axios.get<{ results: any[] }>(
-                  `${JAMF_INSTANCE}/api/v1/device-enrollments/${instance.id}/devices`,
-                  { headers: { Authorization: `Bearer ${token}` } }
-                );
+                const devices = await utils.getADEEnrolledDevices(instance.id);
                 const normalizedSearch = search.toUpperCase();
                 // Device enrollments cover ALL ADE devices — keep only mobile
                 // models out of this mobile device search.
-                return devicesRes.data.results.filter(device =>
+                return devices.filter(device =>
                   device.serialNumber?.toUpperCase().includes(normalizedSearch) &&
                   MOBILE_MODEL_PATTERN.test((device.model ?? '').toUpperCase())
                 );

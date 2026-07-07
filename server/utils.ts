@@ -180,6 +180,27 @@ export async function matchComputer(search: string): Promise<ComputerMatch[]> {
   throw new Error('Unexpected response format');
 }
 
+// Function to fetch all ADE-assigned devices for a device enrollment instance
+// (paginates until all records are fetched — the endpoint defaults to ~100/page)
+export async function getADEEnrolledDevices(instanceId: string): Promise<any[]> {
+  const token = await getJAMFToken();
+  const pageSize = 100;
+  let page = 0;
+  const all: any[] = [];
+
+  while (true) {
+    const apiUrl = `${JAMF_INSTANCE}/api/v1/device-enrollments/${instanceId}/devices?page=${page}&page-size=${pageSize}`;
+    const response = await axios.get<{ totalCount: number; results: any[] }>(apiUrl, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    all.push(...response.data.results);
+    if (all.length >= response.data.totalCount || response.data.results.length < pageSize) break;
+    page++;
+  }
+
+  return all;
+}
+
 // Function to get all prestages & their IDs (paginates until all records are fetched)
 export async function getPrestages(): Promise<{ id: string; displayName: string; versionLock: string }[]> {
   const token = await getJAMFToken();
