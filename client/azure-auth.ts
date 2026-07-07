@@ -4,6 +4,34 @@ const SKIP_AUTH = process.env.SKIP_ENTRA_AUTH === 'true';
 
 import axios from 'axios';
 
+// Set once the MSAL instance exists (see init()) so the request interceptor below
+// can reach it without being tied to a specific Alpine component instance.
+let msalInstance: any = null;
+
+// Attaches a fresh Entra ID token to every outbound API request, so the server can
+// verify the caller's identity from a signed token instead of trusting a client
+// header (which is what the old X-User-Name-only scheme amounted to).
+if (!SKIP_AUTH) {
+  axios.interceptors.request.use(async (config) => {
+    if (!msalInstance) return config;
+    const accounts = msalInstance.getAllAccounts();
+    if (accounts.length === 0) return config;
+    try {
+      // 'User.Read' is a default, always-consented Graph scope — we don't use the
+      // access token it grants, just the fresh idToken MSAL returns alongside it.
+      const result = await msalInstance.acquireTokenSilent({ scopes: ['User.Read'], account: accounts[0] });
+      if (result?.idToken) {
+        config.headers.set('Authorization', `Bearer ${result.idToken}`);
+      }
+    } catch (err) {
+      // Leave the request unauthenticated; the server will reject it with 401
+      // rather than this silently sending a stale/missing token.
+      console.error('Failed to acquire token for request:', err);
+    }
+    return config;
+  });
+}
+
 export default () => {
   return {
     isAuthenticated: SKIP_AUTH,
@@ -29,6 +57,7 @@ export default () => {
           storeAuthStateInCookie: false,
         },
       });
+      msalInstance = this._msal;
       try {
         await this._msal.initialize();
         const accounts = this._msal.getAllAccounts();
@@ -51,7 +80,9 @@ export default () => {
       if (SKIP_AUTH) return;
       this.errorMessage = '';
       try {
-        const result = await this._msal.loginPopup();
+        // Request the same scope acquireTokenSilent uses above, so consent is
+        // captured now rather than forcing an interactive prompt on the first API call.
+        const result = await this._msal.loginPopup({ scopes: ['User.Read'] });
         this.isAuthenticated = true;
         if (result?.account?.name) {
           axios.defaults.headers.common['X-User-Name'] = result.account.name;
