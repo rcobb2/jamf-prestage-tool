@@ -238,8 +238,12 @@ const server: Bun.Server = Bun.serve({
                   { headers: { Authorization: `Bearer ${token}` } }
                 );
                 const normalizedSearch = search.toUpperCase();
+                // Device enrollments cover ALL ADE devices (Macs, iPads, iPhones,
+                // Apple TVs) — keep only Macs out of this computer search.
+                const mobileModelPattern = /IPAD|IPHONE|IPOD|APPLE TV|APPLE WATCH|VISION PRO/;
                 return devicesRes.data.results.filter(device =>
-                  device.serialNumber?.toUpperCase().includes(normalizedSearch)
+                  device.serialNumber?.toUpperCase().includes(normalizedSearch) &&
+                  !mobileModelPattern.test((device.model ?? '').toUpperCase())
                 );
               })
             );
