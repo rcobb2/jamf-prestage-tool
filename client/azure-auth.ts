@@ -8,6 +8,16 @@ import axios from 'axios';
 // can reach it without being tied to a specific Alpine component instance.
 let msalInstance: any = null;
 
+// Resolves once a real, usable session exists (SKIP_AUTH, an existing cached
+// session found on load, or a fresh interactive sign-in) — i.e. once requests
+// will actually carry a token instead of 401ing. Other components that fetch
+// data on mount (not behind a user click) should await this first; otherwise
+// they race the MSAL popup/redirect flow and fire before any token exists.
+let resolveAuthReady: (() => void) | null = null;
+export const authReady: Promise<void> = SKIP_AUTH
+  ? Promise.resolve()
+  : new Promise<void>((resolve) => { resolveAuthReady = resolve; });
+
 // Attaches a fresh Entra ID token to every outbound API request, so the server can
 // verify the caller's identity from a signed token instead of trusting a client
 // header (which is what the old X-User-Name-only scheme amounted to).
@@ -67,6 +77,8 @@ export default () => {
           );
           if (!this.isAuthenticated) {
             this.errorMessage = 'No authenticated account with the expected tenant ID found.';
+          } else {
+            resolveAuthReady?.();
           }
         }
         await this._msal.handleRedirectPromise();
@@ -84,6 +96,7 @@ export default () => {
         // captured now rather than forcing an interactive prompt on the first API call.
         const result = await this._msal.loginPopup({ scopes: ['User.Read'] });
         this.isAuthenticated = true;
+        resolveAuthReady?.();
         if (result?.account?.name) {
           axios.defaults.headers.common['X-User-Name'] = result.account.name;
         }

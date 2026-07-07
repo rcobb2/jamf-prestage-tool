@@ -2,7 +2,7 @@
 import Alpine from 'alpinejs';
 import AlpinePersist from "@alpinejs/persist";
 import axios, { type AxiosResponse } from 'axios';
-import AzureAuth from "./azure-auth.ts";
+import AzureAuth, { authReady } from "./azure-auth.ts";
 
 
 
@@ -79,6 +79,9 @@ function createAlpineData() {
     },
 
     async init() {
+      // Wait for a real session before polling an authenticated endpoint —
+      // otherwise this fires immediately on page load, before sign-in completes.
+      await authReady;
       await this.pollPending();
       this._pollInterval = setInterval(() => this.pollPending(), 30000);
     },
@@ -319,6 +322,10 @@ function fetchBuildings() {
     buildings: [] as Array<{ name: string; id: string; }>,
 
     async init() {
+      // Same reasoning as AlpineData.init(): this fires on mount, not on user
+      // interaction, so it must wait for a real session or it 401s and — since
+      // there's no retry — leaves the buildings dropdown empty even after sign-in.
+      await authReady;
       const response: AxiosResponse = await axios.get(`/buildings`)
         .catch((error: any) => {
           console.error('Error fetching buildings:', error.response?.data || error.message);
