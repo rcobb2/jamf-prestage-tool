@@ -18,7 +18,11 @@ export default () => {
         auth: {
           clientId: process.env.AZURE_CLIENT_ID as string,
           authority: process.env.AZURE_AUTHORITY,
-          redirectUri: `https://${process.env.CLIENT_HOSTNAME}:${process.env.CLIENT_PORT}/`,
+          redirectUri: (() => {
+            const port = process.env.CLIENT_PORT;
+            const host = process.env.CLIENT_HOSTNAME;
+            return (port === '443' || port === '') ? `https://${host}/` : `https://${host}:${port}/`;
+          })(),
         },
         cache: {
           cacheLocation: 'localStorage',
