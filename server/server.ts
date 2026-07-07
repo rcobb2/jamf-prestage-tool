@@ -17,6 +17,10 @@ function getIP(req: Request): string {
 
 const notFound = Bun.file("404.html");
 
+// Device-enrollment records have no explicit device-type field, so ADE
+// fallback searches distinguish Macs from mobile devices by model name.
+const MOBILE_MODEL_PATTERN = /IPAD|IPHONE|IPOD|APPLE TV|APPLE WATCH|VISION PRO/;
+
 const {
   GLPI_INSTANCE,
   GLPI_APP_TOKEN,
@@ -240,10 +244,9 @@ const server: Bun.Server = Bun.serve({
                 const normalizedSearch = search.toUpperCase();
                 // Device enrollments cover ALL ADE devices (Macs, iPads, iPhones,
                 // Apple TVs) — keep only Macs out of this computer search.
-                const mobileModelPattern = /IPAD|IPHONE|IPOD|APPLE TV|APPLE WATCH|VISION PRO/;
                 return devicesRes.data.results.filter(device =>
                   device.serialNumber?.toUpperCase().includes(normalizedSearch) &&
-                  !mobileModelPattern.test((device.model ?? '').toUpperCase())
+                  !MOBILE_MODEL_PATTERN.test((device.model ?? '').toUpperCase())
                 );
               })
             );
@@ -328,7 +331,55 @@ const server: Bun.Server = Bun.serve({
           let results: any[] = [];
 
           if (mobileDevices.length === 0) {
-            return new Response('No mobile device found', { ...CORS_HEADERS, status: 404 });
+            // Search device enrollments if no mobile devices found
+            const enrollmentsRes = await axios.get<{ results: any[] }>(
+              `${JAMF_INSTANCE}/api/v1/device-enrollments?page=0&page-size=100`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+
+            const enrollmentDevices = await Promise.all(
+              enrollmentsRes.data.results.map(async (instance) => {
+                const devicesRes = await axios.get<{ results: any[] }>(
+                  `${JAMF_INSTANCE}/api/v1/device-enrollments/${instance.id}/devices`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const normalizedSearch = search.toUpperCase();
+                // Device enrollments cover ALL ADE devices — keep only mobile
+                // models out of this mobile device search.
+                return devicesRes.data.results.filter(device =>
+                  device.serialNumber?.toUpperCase().includes(normalizedSearch) &&
+                  MOBILE_MODEL_PATTERN.test((device.model ?? '').toUpperCase())
+                );
+              })
+            );
+
+            const flatDevices = enrollmentDevices.flat();
+
+            results = await Promise.all(
+              flatDevices.map(async (device) => {
+                const preloadRes = await axios.get<{ results: any[] }>(
+                  `${JAMF_INSTANCE}/api/v2/inventory-preload/records?page=0&page-size=1&filter=serialNumber%3D%3D${device.serialNumber}`,
+                  { headers: { Authorization: `Bearer ${token}` } }
+                );
+                const preload = preloadRes.data.results[0] || null;
+
+                return {
+                  computerId: 'none',
+                  assetTag: preload?.assetTag || 'N/A',
+                  serialNumber: device.serialNumber,
+                  preloadId: preload?.id || 'none',
+                  username: preload?.username || null,
+                  building: preload?.building || 'N/A',
+                  room: preload?.room || null,
+                };
+              })
+            );
+
+            if (results.length === 0) {
+              return new Response('No mobile device found', { ...CORS_HEADERS, status: 404 });
+            }
+
+            return new Response(JSON.stringify(results), { ...CORS_HEADERS, status: 200 });
           }
 
           // Build the full serial→prestage map once (parallel scope fetches) before iterating devices
