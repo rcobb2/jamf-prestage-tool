@@ -1,18 +1,21 @@
 import { resolve } from 'path';
 
+const e = (k: string) => JSON.stringify(process.env[k] ?? '');
+
 await Bun.build({
   entrypoints: ['./main.ts'],
   outdir: './client/',
-  // Explicit allowlist — never use 'inline' which would bundle every env var (including secrets)
-  env: {
-    SKIP_ENTRA_AUTH: process.env.SKIP_ENTRA_AUTH ?? '',
-    AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID ?? '',
-    AZURE_AUTHORITY: process.env.AZURE_AUTHORITY ?? '',
-    CLIENT_HOSTNAME: process.env.CLIENT_HOSTNAME ?? '',
-    CLIENT_PORT: process.env.CLIENT_PORT ?? '',
-    THEME: process.env.THEME ?? '',
-    SERVER_API_HOSTNAME: process.env.SERVER_API_HOSTNAME ?? '',
-    SERVER_API_PORT: process.env.SERVER_API_PORT ?? '',
+  // Bun 1.2+ dropped the env-object API; use define to explicitly allowlist vars.
+  env: 'disable',
+  define: {
+    'process.env.SKIP_ENTRA_AUTH':    e('SKIP_ENTRA_AUTH'),
+    'process.env.AZURE_CLIENT_ID':    e('AZURE_CLIENT_ID'),
+    'process.env.AZURE_AUTHORITY':    e('AZURE_AUTHORITY'),
+    'process.env.CLIENT_HOSTNAME':    e('CLIENT_HOSTNAME'),
+    'process.env.CLIENT_PORT':        e('CLIENT_PORT'),
+    'process.env.THEME':              e('THEME'),
+    'process.env.SERVER_API_HOSTNAME': e('SERVER_API_HOSTNAME'),
+    'process.env.SERVER_API_PORT':    e('SERVER_API_PORT'),
   },
   target: 'browser',
   format: 'esm',
