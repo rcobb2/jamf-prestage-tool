@@ -156,9 +156,13 @@ function createAlpineData() {
 
     prev() {
       this.dataIndex = (this.dataIndex - 1 + this.dataList.length) % this.dataList.length;
+      this.updateToPrestage = 0;
+      this.showPrestageDropdown = false;
     },
     next() {
       this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
+      this.updateToPrestage = 0;
+      this.showPrestageDropdown = false;
     },
 
     async search() {
@@ -184,6 +188,7 @@ function createAlpineData() {
         this.errorMessage = '';
         this.successMessage = '';
         this.showPrestageDropdown = false;
+        this.updateToPrestage = 0;
 
         // Focus on the next non-disabled input element with the class 'datafield-input'
         Alpine.nextTick(() => {
@@ -215,7 +220,8 @@ function createAlpineData() {
         .filter(k => String((current as any)[k] ?? '') !== String((original as any)[k] ?? ''))
         .map(k => `${k}: "${(original as any)[k] ?? ''}" → "${(current as any)[k] ?? ''}"`);
 
-      const hasPrestageUpdate = this.updateToPrestage !== 0;
+      const hasPrestageUpdate = this.updateToPrestage !== 0
+        && String(current.currentPrestage ?? '') !== String(original.currentPrestage ?? '');
       const prestageLines: string[] = hasPrestageUpdate
         ? [`Prestage: "${original.currentPrestage}" → "${current.currentPrestage}"`]
         : [];
@@ -245,6 +251,7 @@ function createAlpineData() {
           }
           this.dataList[this.dataIndex] = { ...current };
           this.dataListCopy[this.dataIndex] = { ...current };
+          this.updateToPrestage = 0;
           this.errorMessage = '';
           this.successMessage = 'Data updated successfully.';
         } catch (error: any) {
