@@ -47,7 +47,7 @@ function createAlpineData() {
     dataIndex: 0,
     totalPages: 0,
     currentPage: 0,
-      updateToPrestage: 0,
+      updateToPrestage: '' as string,
     showPrestageDropdown: false,
     confirmModal: {
       title: '',
@@ -156,12 +156,12 @@ function createAlpineData() {
 
     prev() {
       this.dataIndex = (this.dataIndex - 1 + this.dataList.length) % this.dataList.length;
-      this.updateToPrestage = 0;
+      this.updateToPrestage = '';
       this.showPrestageDropdown = false;
     },
     next() {
       this.dataIndex = (this.dataIndex + 1) % this.dataList.length;
-      this.updateToPrestage = 0;
+      this.updateToPrestage = '';
       this.showPrestageDropdown = false;
     },
 
@@ -188,7 +188,7 @@ function createAlpineData() {
         this.errorMessage = '';
         this.successMessage = '';
         this.showPrestageDropdown = false;
-        this.updateToPrestage = 0;
+        this.updateToPrestage = '';
 
         // Focus on the next non-disabled input element with the class 'datafield-input'
         Alpine.nextTick(() => {
@@ -220,7 +220,7 @@ function createAlpineData() {
         .filter(k => String((current as any)[k] ?? '') !== String((original as any)[k] ?? ''))
         .map(k => `${k}: "${(original as any)[k] ?? ''}" → "${(current as any)[k] ?? ''}"`);
 
-      const hasPrestageUpdate = this.updateToPrestage !== 0
+      const hasPrestageUpdate = this.updateToPrestage !== ''
         && String(current.currentPrestage ?? '') !== String(original.currentPrestage ?? '');
       const prestageLines: string[] = hasPrestageUpdate
         ? [`Prestage: "${original.currentPrestage}" → "${current.currentPrestage}"`]
@@ -251,7 +251,7 @@ function createAlpineData() {
           }
           this.dataList[this.dataIndex] = { ...current };
           this.dataListCopy[this.dataIndex] = { ...current };
-          this.updateToPrestage = 0;
+          this.updateToPrestage = '';
           this.errorMessage = '';
           this.successMessage = 'Data updated successfully.';
         } catch (error: any) {

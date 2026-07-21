@@ -147,7 +147,7 @@
               </div>
               <div x-show="showPrestageDropdown" class="flex justify-between items-center w-full">
                 <label class="label text-base">Prestage</label>
-                <select class="select" name="prestageDropdown" @change="(() => { const selectedId = $event.target.value; updateToPrestage = selectedId; const p = prestages.find(pr => String(pr.id) === selectedId); if (p) { currentData.currentPrestage = p.displayName; } showPrestageDropdown = false; })()">
+                <select class="select" name="prestageDropdown" x-model="updateToPrestage" @change="(() => { const p = prestages.find(pr => String(pr.id) === $event.target.value); if (p) { currentData.currentPrestage = p.displayName; } showPrestageDropdown = false; })()">
                   <option value="" selected disabled>Select Prestage</option>
                   <template x-for="prestage in prestages" :key="prestage.id">
                     <option :value="prestage.id" x-text="prestage.displayName"></option>
