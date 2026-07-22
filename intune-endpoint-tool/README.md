@@ -6,12 +6,14 @@ same runtime (Bun), same UI stack (Alpine.js + DaisyUI/Tailwind), same auth patt
 (Entra ID), same audit/approval workflow — but targets Microsoft Graph instead of the
 Jamf Pro API.
 
-**This is a scaffold, not a finished tool.** The generic pieces (auth, audit log,
-approval workflow, UI shell, Docker/build setup) are fully wired up and working. The
-Microsoft Graph calls themselves — search, enrollment profile assignment, wipe, retire —
-are typed function stubs in `server/utils.ts` with `TODO` comments describing the exact
-Graph endpoint, request shape, and platform-specific nuances to implement. See that file
-before writing any UI-facing feature work.
+**This has real Microsoft Graph calls wired in, but validate against a test tenant
+before trusting it in production.** The Windows Autopilot path (search, enrollment
+profile list/assign/remove, wipe, retire) is implemented against Graph endpoints and
+field names I'm confident are correct. The Apple ADE path is implemented less
+confidently — Graph's `depOnboardingSettings`/`importedAppleDeviceIdentities` corner is
+far less documented, and per-device profile assignment for Apple ADE is left as an
+explicit "not implemented" throw rather than a guessed mutating call. See the comments
+in `server/utils.ts` above each function for exactly what's solid vs. what to verify.
 
 ## Why this isn't a 1:1 port
 
@@ -46,9 +48,19 @@ replaced wholesale on every write) does not map cleanly onto Intune:
 | Entra ID user auth (`server/auth.ts`, `client/azure-auth.ts`) | Fully implemented — same pattern as the Jamf tool |
 | Microsoft Graph client-credentials token acquisition (`server/utils.ts: getGraphToken`) | Fully implemented |
 | Audit log & two-person approval workflow (`server/db.ts`, approval routes) | Fully implemented |
-| Device search, enrollment profile list/assign/remove, wipe, retire | **Stubbed** — typed signatures with TODO comments pointing at the exact Graph endpoints |
+| Device search (`searchDevices`) | Implemented — enrolled devices via `managedDevices`, falling back to Windows Autopilot / Apple ADE pre-enrollment identities. The `contains()` filter used for substring search needs your tenant to support Graph's advanced query capabilities on `managedDevices`; if not, it's caught and logged, and pre-enrollment fallback still runs |
+| Enrollment profile list (`getEnrollmentProfiles`) | Implemented for both platforms — Windows via `windowsAutopilotDeploymentProfiles`, Apple via `depOnboardingSettings`/`enrollmentProfiles` (lower confidence on Apple, see comment) |
+| Current profile assignment (`getEnrollmentProfileAssignment`) | Implemented for Windows; returns `'N/A'` for Apple (**stubbed** — TODO in `server/utils.ts`) |
+| Assign / remove profile (`assignDeviceToProfile`, `removeDeviceFromProfile`) | Implemented for Windows using the bind + `assign` action pattern; **stubbed** (throws) for Apple — the exact per-device Graph action isn't confirmed, and a mutating write shouldn't be guessed at |
+| Wipe (`wipeDevice`) | Implemented — `managedDevices/{id}/wipe` with `keepEnrollmentData` defaulted `true` so Autopilot devices reprovision |
+| Retire (`retireDevice`) | Implemented — Intune retire, then best-effort cleanup of the Windows Autopilot identity and the Entra ID device object |
 | GLPI / ClearPass retirement cleanup steps | Fully implemented — reused as-is, these are vendor-agnostic |
-| UI (`client/index.html`, `client/main.ts`) | Fully implemented against the stubbed API shape |
+| UI (`client/index.html`, `client/main.ts`) | Fully implemented against the live API shape |
+
+Not implemented, by design rather than oversight: macOS Activation Lock bypass code
+retrieval/display before wipe (Graph exposes `activationLockBypassCode` to read, but
+surfacing it needs a UX change — show the code *before* the wipe is confirmed, not
+after), and Apple ADE profile assignment (see above).
 
 ## Requirements
 - A Microsoft Entra ID tenant with Intune licensing.
@@ -64,8 +76,8 @@ replaced wholesale on every write) does not map cleanly onto Intune:
 2. Copy `.env.example` to `.env` and fill in your values.
 3. Copy & name your SSL certs as `certs/server.cert` & `certs/server.key`
    (or omit them and put this behind a reverse proxy that terminates TLS).
-4. Implement the Graph calls in `server/utils.ts` (see TODO comments) for the
-   features you need first — device search is the natural starting point.
+4. Test against a non-production tenant first, especially the Windows Autopilot
+   assign/remove/retire flows — they mutate real enrollment state.
 
 ## Usage
 ```bash

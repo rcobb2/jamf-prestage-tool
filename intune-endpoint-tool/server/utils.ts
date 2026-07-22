@@ -1,6 +1,11 @@
 import axios from 'axios';
 import logger from './logger.ts';
 import axiosRetry from 'axios-retry';
+import { getDeviceMetadata } from './db.ts';
+
+// Without this, a hung connection to Graph (or GLPI/Clearpass) would hang the request
+// handler indefinitely — axios has no default timeout.
+axios.defaults.timeout = 15000;
 
 // Configure global retry for all axios requests (3 retries, exponential backoff).
 // Only retry safe/idempotent methods on 5xx — never retry POST/DELETE (wipe, retire, delete).
@@ -184,143 +189,370 @@ export async function deleteClearpassMAC(macAddress: string): Promise<any> {
 }
 
 // ============================================================================
+// Graph request helpers
+// ============================================================================
+
+function escapeODataString(value: string): string {
+  return value.replace(/'/g, "''");
+}
+
+// Follows @odata.nextLink until exhausted. extraHeaders is used for endpoints that
+// require ConsistencyLevel: eventual (advanced query capabilities, e.g. contains()).
+async function graphGetAllPages<T = any>(url: string, token: string, extraHeaders?: Record<string, string>): Promise<T[]> {
+  const all: T[] = [];
+  let next: string | undefined = url;
+  while (next) {
+    const response: any = await axios.get(next, {
+      headers: { Authorization: `Bearer ${token}`, ...extraHeaders },
+    });
+    all.push(...(response.data.value ?? []));
+    next = response.data['@odata.nextLink'];
+  }
+  return all;
+}
+
+function platformFromOperatingSystem(operatingSystem?: string | null): Platform | 'unknown' {
+  const os = (operatingSystem ?? '').toLowerCase();
+  if (os.includes('windows')) return 'windows';
+  if (os.includes('mac') || os.includes('ios') || os.includes('ipad')) return 'apple';
+  return 'unknown';
+}
+
+// Looks up a device's Windows Autopilot identity by serial number, with its assigned
+// deployment profile expanded so callers get the displayName without a second round trip.
+async function findAutopilotIdentityBySerial(serialNumber: string, token: string): Promise<any | null> {
+  try {
+    const results = await graphGetAllPages<any>(
+      `${GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities?$filter=contains(serialNumber,'${escapeODataString(serialNumber)}')&$expand=deploymentProfile`,
+      token
+    );
+    return results[0] ?? null;
+  } catch (err: any) {
+    logger.warn({ err: err.message, serialNumber }, 'Windows Autopilot device identity lookup failed');
+    return null;
+  }
+}
+
+function buildRecordFromMetadata(serialNumber: string) {
+  const metadata = getDeviceMetadata(serialNumber);
+  return {
+    username: metadata?.username ?? null,
+    email: metadata?.email ?? null,
+    building: metadata?.building ?? null,
+    room: metadata?.room ?? null,
+    assetTag: metadata?.assetTag ?? null,
+  };
+}
+
+async function buildEnrolledDeviceRecord(managedDevice: any, token: string): Promise<DeviceRecord> {
+  const platform = platformFromOperatingSystem(managedDevice.operatingSystem);
+  const metadata = buildRecordFromMetadata(managedDevice.serialNumber);
+  let autopilotId: string | null = null;
+  let groupTag: string | null = null;
+  let assignedUserPrincipalName: string | null = managedDevice.userPrincipalName ?? null;
+  let currentEnrollmentProfile = 'N/A';
+
+  if (platform === 'windows') {
+    const identity = await findAutopilotIdentityBySerial(managedDevice.serialNumber, token);
+    if (identity) {
+      autopilotId = identity.id;
+      groupTag = identity.groupTag ?? null;
+      assignedUserPrincipalName = identity.assignedUserPrincipalName ?? assignedUserPrincipalName;
+      currentEnrollmentProfile = identity.deploymentProfile?.displayName ?? 'Unassigned';
+    } else {
+      currentEnrollmentProfile = 'Unassigned';
+    }
+  }
+
+  return {
+    serialNumber: managedDevice.serialNumber,
+    intuneDeviceId: managedDevice.id,
+    // The GUID Graph calls azureADDeviceId on managedDevice — this is the Entra ID
+    // device's `deviceId` property, NOT its directory object id. retireDevice() below
+    // resolves the directory object id separately when it needs to delete the object.
+    azureAdDeviceId: managedDevice.azureADDeviceId ?? null,
+    autopilotId,
+    name: managedDevice.deviceName ?? null,
+    model: managedDevice.model ?? null,
+    platform,
+    currentEnrollmentProfile,
+    groupTag,
+    assignedUserPrincipalName,
+    macAddress: managedDevice.wiFiMacAddress ?? null,
+    // managedDevice does not expose a second MAC address the way Jamf's mobile device
+    // detail did (wifi + bluetooth) — left null.
+    altMacAddress: null,
+    username: metadata.username ?? managedDevice.userPrincipalName ?? null,
+    email: metadata.email ?? managedDevice.emailAddress ?? null,
+    building: metadata.building,
+    room: metadata.room,
+    assetTag: metadata.assetTag,
+  };
+}
+
+function buildAutopilotOnlyDeviceRecord(identity: any): DeviceRecord {
+  return {
+    serialNumber: identity.serialNumber,
+    intuneDeviceId: identity.managedDeviceId ?? null,
+    azureAdDeviceId: identity.azureActiveDirectoryDeviceId ?? null,
+    autopilotId: identity.id,
+    name: identity.displayName ?? null,
+    model: identity.model ?? null,
+    platform: 'windows',
+    currentEnrollmentProfile: identity.deploymentProfile?.displayName ?? 'Unassigned',
+    groupTag: identity.groupTag ?? null,
+    assignedUserPrincipalName: identity.assignedUserPrincipalName ?? null,
+    macAddress: null,
+    altMacAddress: null,
+    ...buildRecordFromMetadata(identity.serialNumber),
+  };
+}
+
+// importedAppleDeviceIdentity field names below are a best-effort reading of the Graph
+// beta schema (this corner of Graph is far less documented/stable than the Windows
+// Autopilot APIs above) — verify against current Microsoft Learn docs before relying on
+// this in production. The resource primarily tracks corporate device identifiers
+// (serial number or IMEI) imported via an Apple Business/School Manager token; unlike
+// managedDevice it does not carry rich attributes like model or MAC address.
+function buildAppleOnlyDeviceRecord(identity: any): DeviceRecord {
+  return {
+    serialNumber: identity.serialNumber ?? identity.importedDeviceIdentifier ?? '',
+    intuneDeviceId: null,
+    azureAdDeviceId: null,
+    autopilotId: null,
+    name: identity.description ?? null,
+    model: null,
+    platform: 'apple',
+    currentEnrollmentProfile: 'Unassigned',
+    groupTag: null,
+    assignedUserPrincipalName: null,
+    macAddress: null,
+    altMacAddress: null,
+    ...buildRecordFromMetadata(identity.serialNumber ?? identity.importedDeviceIdentifier ?? ''),
+  };
+}
+
+// ============================================================================
 // Device search
 //
-// TODO: implement. Graph has no single "search by anything" endpoint like Jamf's
-// Classic API wildcard match — this needs to fan out and merge:
+// Graph has no single "search by anything" endpoint like Jamf's Classic API wildcard
+// match. This fans out to enrolled devices first; only if nothing is enrolled does it
+// fall back to pre-enrollment identities (Windows Autopilot / Apple ADE), mirroring the
+// Jamf tool's own "search computers, then fall back to device-enrollments" shape.
 //
-//   1. Enrolled devices:
-//      GET {GRAPH_BASE}/deviceManagement/managedDevices
-//        ?$filter=deviceName eq '{q}' or serialNumber eq '{q}'
-//      For substring/contains search (closest to Jamf's `*term*`), use the
-//      advanced query form instead, which requires the ConsistencyLevel header:
-//        GET {GRAPH_BASE}/deviceManagement/managedDevices?$search="serialNumber:{q}"
-//        Headers: { ConsistencyLevel: 'eventual' }
-//      Search by user: GET {GRAPH_BASE}/users/{upn}/managedDevices
-//
-//   2. Pre-enrollment (Windows Autopilot) — analog of Jamf's ADE device-enrollments
-//      fallback:
-//      GET {GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities
-//        ?$filter=contains(serialNumber,'{q}')
-//
-//   3. Pre-enrollment (Apple ADE via Intune) — devices imported through an Apple
-//      Business/School Manager token but not yet enrolled:
-//      GET {GRAPH_BETA}/deviceManagement/importedAppleDeviceIdentities
-//        ?$filter=contains(serialNumber,'{q}')
-//
-// Merge all three, dedupe by serial number, then join each result with local
-// device_metadata (db.ts: getDeviceMetadata) and the device's current enrollment
-// profile assignment (see getEnrollmentProfileAssignment below) to build DeviceRecord[].
+// The managedDevices contains() filter below needs the tenant to support Graph's
+// advanced query capabilities on this endpoint. If it doesn't, the request is caught
+// and logged rather than allowed to crash the whole search — the pre-enrollment fallback
+// still runs. If this warning shows up in your logs, switch to exact-match `eq` filters
+// (serialNumber eq '{q}', deviceName eq '{q}') instead.
 // ============================================================================
-export async function searchDevices(_query: string): Promise<DeviceRecord[]> {
-  throw new Error('searchDevices is not implemented — see TODO comment above for the Graph calls to fan out and merge.');
+export async function searchDevices(query: string): Promise<DeviceRecord[]> {
+  const token = await getGraphToken();
+  const escaped = escapeODataString(query.trim());
+
+  let managedDevices: any[] = [];
+  try {
+    const filter = `contains(serialNumber,'${escaped}') or contains(deviceName,'${escaped}') or contains(userPrincipalName,'${escaped}') or contains(emailAddress,'${escaped}')`;
+    managedDevices = await graphGetAllPages<any>(
+      `${GRAPH_BASE}/deviceManagement/managedDevices?$filter=${encodeURIComponent(filter)}&$count=true`,
+      token,
+      { ConsistencyLevel: 'eventual' }
+    );
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'managedDevices contains() filter failed — falling back to pre-enrollment search only; your tenant may need exact-match (eq) filters instead');
+  }
+
+  if (managedDevices.length > 0) {
+    return Promise.all(managedDevices.map((md) => buildEnrolledDeviceRecord(md, token)));
+  }
+
+  const [autopilotMatches, appleMatches] = await Promise.all([
+    graphGetAllPages<any>(
+      `${GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities?$filter=contains(serialNumber,'${escaped}')&$expand=deploymentProfile`,
+      token
+    ).catch((err: any) => {
+      logger.warn({ err: err.message }, 'windowsAutopilotDeviceIdentities search failed');
+      return [];
+    }),
+    graphGetAllPages<any>(
+      `${GRAPH_BETA}/deviceManagement/importedAppleDeviceIdentities?$filter=contains(serialNumber,'${escaped}')`,
+      token
+    ).catch((err: any) => {
+      logger.warn({ err: err.message }, 'importedAppleDeviceIdentities search failed (see field-name caveat on buildAppleOnlyDeviceRecord)');
+      return [];
+    }),
+  ]);
+
+  return [
+    ...autopilotMatches.map(buildAutopilotOnlyDeviceRecord),
+    ...appleMatches.map(buildAppleOnlyDeviceRecord),
+  ];
 }
 
 // ============================================================================
 // Enrollment profiles (Jamf prestage list equivalent)
-//
-// TODO: implement, branching on platform:
-//   windows: GET {GRAPH_BETA}/deviceManagement/windowsAutopilotDeploymentProfiles
-//   apple:   GET {GRAPH_BETA}/deviceManagement/depOnboardingSettings/{tokenId}/enrollmentProfiles
-//            (Apple ADE profiles are scoped per Apple Business/School Manager token,
-//            so this likely needs to paginate depOnboardingSettings first, then each
-//            token's enrollmentProfiles — unlike Jamf, which has one flat prestage list.)
-// Paginate via @odata.nextLink the same way the Jamf tool paginates page/page-size.
 // ============================================================================
-export async function getEnrollmentProfiles(_platform: Platform): Promise<EnrollmentProfile[]> {
-  throw new Error('getEnrollmentProfiles is not implemented — see TODO comment above.');
+export async function getEnrollmentProfiles(platform: Platform): Promise<EnrollmentProfile[]> {
+  const token = await getGraphToken();
+
+  if (platform === 'windows') {
+    const profiles = await graphGetAllPages<any>(`${GRAPH_BETA}/deviceManagement/windowsAutopilotDeploymentProfiles`, token);
+    return profiles.map((p) => ({ id: p.id, displayName: p.displayName, platform: 'windows' as const }));
+  }
+
+  // Apple ADE profiles are scoped per Apple Business/School Manager (ABM/ASM) token —
+  // there is no single flat list the way Jamf has one prestage list. Enumerate every
+  // onboarding setting (one per ABM/ASM token) and flatten their enrollment profiles.
+  // depOnboardingSettings/enrollmentProfiles nesting is a best-effort reading of Graph
+  // beta — verify against current docs if this returns unexpected shapes.
+  const settings = await graphGetAllPages<any>(`${GRAPH_BETA}/deviceManagement/depOnboardingSettings`, token);
+  const profileLists = await Promise.all(
+    settings.map((s: any) =>
+      graphGetAllPages<any>(`${GRAPH_BETA}/deviceManagement/depOnboardingSettings/${s.id}/enrollmentProfiles`, token)
+        .catch((err: any) => {
+          logger.warn({ err: err.message, settingId: s.id }, 'Failed to list enrollment profiles for a depOnboardingSetting');
+          return [];
+        })
+    )
+  );
+  return profileLists.flat().map((p: any) => ({ id: p.id, displayName: p.displayName, platform: 'apple' as const }));
 }
 
 // ============================================================================
 // Current profile assignment for a device (Jamf getPrestageAssignments equivalent)
-//
-// TODO: implement.
-//   windows: GET the device's windowsAutopilotDeviceIdentity (by serial), read its
-//     `deploymentProfileAssignmentStatus` and `deploymentProfileAssignmentDetailedStatus`
-//     fields, and resolve the assigned profile's displayName via its `deploymentProfile`
-//     navigation property (may need $expand=deploymentProfile or a follow-up GET).
-//   apple: read the device's enrollment profile assignment off the matching
-//     importedAppleDeviceIdentity / the Apple enrollment profile's assignedDevices.
-// Return { serialNumber, displayName: 'Unassigned' } if nothing is assigned, mirroring
-// the Jamf tool's sentinel value.
 // ============================================================================
-export async function getEnrollmentProfileAssignment(serialNumber: string, _platform: Platform): Promise<{ serialNumber: string; displayName: string }> {
-  return { serialNumber, displayName: 'Unassigned' };
+export async function getEnrollmentProfileAssignment(serialNumber: string, platform: Platform): Promise<{ serialNumber: string; displayName: string }> {
+  if (platform === 'windows') {
+    const token = await getGraphToken();
+    const identity = await findAutopilotIdentityBySerial(serialNumber, token);
+    if (!identity) return { serialNumber, displayName: 'Unassigned' };
+    return { serialNumber, displayName: identity.deploymentProfile?.displayName ?? 'Unassigned' };
+  }
+
+  // TODO: Apple ADE — resolving a device's current enrollment profile assignment needs
+  // cross-referencing depOnboardingSettings/{id}/enrollmentProfiles/{id}/devices (or an
+  // equivalent assignment collection); left as 'N/A' until that shape is confirmed
+  // against your tenant, matching the Jamf tool's own "N/A" sentinel for unknown state.
+  return { serialNumber, displayName: 'N/A' };
 }
 
 // ============================================================================
 // Assign / reassign a device to an enrollment profile (Jamf addDeviceToPrestage
 // equivalent — but the assignment MODEL is fundamentally different from Jamf's flat
-// serial-number scope list, so this is not a drop-in port):
+// serial-number scope list, so this is not a drop-in port).
 //
-//   Windows Autopilot profile assignment is group-membership-driven, not a per-device
-//   scope list. Two supported strategies — pick the one matching your tenant's setup:
+// Windows: uses Graph's documented per-device direct-assignment action — bind the
+// target deploymentProfile onto the Autopilot identity via @odata.bind, then invoke the
+// `assign` action to apply it. This is the closest Intune analog to Jamf's "PUT this one
+// serial into this one prestage" semantics, and does not require pre-existing dynamic/
+// static Entra ID groups. If your tenant instead assigns Autopilot profiles to groups via
+// Group Tag, use updateDeviceProperties to set groupTag on the identity instead — the
+// group's dynamic membership rule (and the profile-to-group assignment) already exists
+// in that setup, so this call alone is sufficient there too.
 //
-//     (a) Group Tag strategy (closest to Jamf's "one serial -> one purpose" model):
-//         POST {GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities/{id}/updateDeviceProperties
-//         Body: { groupTag: '<tag matching a dynamic group targeted by the profile>' }
-//         Requires a pre-existing dynamic Entra ID group per profile/purpose whose
-//         membership rule matches on autopilot group tag, and the profile already
-//         assigned to that group.
-//
-//     (b) Static group membership strategy:
-//         POST {GRAPH_BASE}/groups/{groupId}/members/$ref  Body: { "@odata.id": ".../devices/{azureAdDeviceId}" }
-//         (and a corresponding DELETE .../members/{azureAdDeviceId}/$ref to remove from
-//         the previous group) — requires resolving the device's Azure AD device object
-//         id, not just its Autopilot identity id.
-//
-//   Apple ADE profile assignment: Graph does not expose a per-device "assign" call the
-//   way Jamf's PUT scope endpoint does; profile-to-device assignment for Apple ADE is
-//   configured through the depOnboardingSettings profile's `assignedDevices` or by the
-//   device's default profile flag (`isDefault`) — consult current Graph beta docs for
-//   your tenant's Apple ADE enrollment type before implementing.
-//
-// The server.ts route handler orchestrates "remove from current, then add to target" —
-// same shape as the Jamf tool's /api/change-prestage route — call this only after
-// removeDeviceFromProfile has been called for the device's current profile (if any).
+// Apple ADE: Graph does not expose a per-device "assign" call the way Jamf's PUT scope
+// endpoint does, and the exact assignment action for depOnboardingSettings profiles is
+// not confirmed here — left unimplemented rather than guessed, since this mutates real
+// enrollment configuration.
 // ============================================================================
-export async function assignDeviceToProfile(_profileId: string, _serialNumber: string, _platform: Platform, _dryRun?: boolean): Promise<any> {
-  throw new Error('assignDeviceToProfile is not implemented — see TODO comment above; the assignment model depends on your tenant\'s group-tag vs. static-group setup.');
+export async function assignDeviceToProfile(profileId: string, serialNumber: string, platform: Platform, dryRun?: boolean): Promise<any> {
+  const token = await getGraphToken();
+
+  if (platform === 'windows') {
+    const identity = await findAutopilotIdentityBySerial(serialNumber, token);
+    if (!identity) {
+      throw new Error(`No Windows Autopilot device identity found for serial ${serialNumber}`);
+    }
+
+    const bindUrl = `${GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities/${identity.id}`;
+    const bindBody = {
+      'deploymentProfile@odata.bind': `${GRAPH_BETA}/deviceManagement/windowsAutopilotDeploymentProfiles/${profileId}`,
+    };
+    const assignUrl = `${GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities/${identity.id}/assign`;
+
+    if (dryRun) {
+      return {
+        dryRun: true,
+        steps: [
+          { method: 'PATCH', url: bindUrl, body: bindBody },
+          { method: 'POST', url: assignUrl, body: {} },
+        ],
+      };
+    }
+
+    await axios.patch(bindUrl, bindBody, { headers: { Authorization: `Bearer ${token}` } });
+    const assignResp = await axios.post(assignUrl, {}, { headers: { Authorization: `Bearer ${token}` } });
+    return assignResp.data ?? { status: 'assigned' };
+  }
+
+  throw new Error('assignDeviceToProfile for platform "apple" is not implemented — see comment block above; the Graph action for per-device Apple ADE profile assignment is not confirmed and mutating writes should not be guessed at.');
 }
 
-export async function removeDeviceFromProfile(_profileId: string, _serialNumber: string, _platform: Platform): Promise<any> {
-  throw new Error('removeDeviceFromProfile is not implemented — see assignDeviceToProfile TODO comment above.');
+// Windows Autopilot direct-assignment has no separate "unassign" action the way Jamf's
+// scope/delete-multiple does — a device carries at most one bound deploymentProfile, and
+// assignDeviceToProfile() above already re-binds atomically when moving to a new target.
+// This best-effort attempts to clear the existing binding via a $ref delete for the
+// standalone "remove" case; if your tenant's Graph version rejects it, the error is
+// thrown (callers in server.ts already treat this as a non-fatal, logged step during
+// reassignment — see the POST /api/change-enrollment-profile route).
+export async function removeDeviceFromProfile(_profileId: string, serialNumber: string, platform: Platform): Promise<any> {
+  const token = await getGraphToken();
+
+  if (platform === 'windows') {
+    const identity = await findAutopilotIdentityBySerial(serialNumber, token);
+    if (!identity) {
+      throw new Error(`No Windows Autopilot device identity found for serial ${serialNumber}`);
+    }
+    const response = await axios.delete(
+      `${GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities/${identity.id}/deploymentProfile/$ref`,
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return response.data ?? { status: 'unassigned' };
+  }
+
+  throw new Error('removeDeviceFromProfile for platform "apple" is not implemented — see assignDeviceToProfile comment block.');
 }
 
 // ============================================================================
 // Wipe a device via Intune MDM command.
 //
-// TODO: implement.
-//   POST {GRAPH_BASE}/deviceManagement/managedDevices/{intuneDeviceId}/wipe
-//   Body: { keepEnrollmentData: boolean, keepUserData: boolean }
-//     - For Windows Autopilot devices, keepEnrollmentData: true lets the device
-//       re-provision itself automatically on next boot (Autopilot Reset) instead of
-//       dropping out of management — the closest Intune analog to how the Jamf tool
-//       always re-applies a prestage after erase.
-//   macOS Activation Lock bypass (Jamf's DEVICE_ERASE_PIN equivalent): fetch the code
-//   via GET {GRAPH_BASE}/deviceManagement/managedDevices/{id}?$select=activationLockBypassCode
-//   and surface it to the tech BEFORE wiping — Graph does not accept a caller-supplied
-//   PIN the way Jamf's erase endpoint does.
+// keepEnrollmentData defaults to true: for a Windows Autopilot device this lets it
+// re-provision itself automatically on next boot (Autopilot Reset) instead of dropping
+// out of management — the closest Intune analog to how the Jamf tool always re-applies
+// a prestage after erase.
+//
+// macOS Activation Lock bypass (Jamf's DEVICE_ERASE_PIN equivalent): Graph does not
+// accept a caller-supplied PIN. Fetch the device's `activationLockBypassCode` via a
+// separate GET before wiping and surface it to the tech — this function does not do
+// that automatically since it changes the UX flow (the code must be shown BEFORE the
+// wipe is confirmed, not after).
 // ============================================================================
-export async function wipeDevice(_intuneDeviceId: string, _options?: { keepEnrollmentData?: boolean; keepUserData?: boolean }): Promise<Response> {
-  return new Response(JSON.stringify('wipeDevice is not implemented — see TODO comment in utils.ts'), { ...CORS_HEADERS, status: 501 });
+export async function wipeDevice(intuneDeviceId: string, options?: { keepEnrollmentData?: boolean; keepUserData?: boolean }): Promise<Response> {
+  try {
+    const token = await getGraphToken();
+    const body = {
+      keepEnrollmentData: options?.keepEnrollmentData ?? true,
+      keepUserData: options?.keepUserData ?? false,
+    };
+    await axios.post(`${GRAPH_BASE}/deviceManagement/managedDevices/${intuneDeviceId}/wipe`, body, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    return new Response(JSON.stringify({ status: 'wiped' }), { ...CORS_HEADERS, status: 200 });
+  } catch (error: any) {
+    const status = error?.response?.status ?? 500;
+    const message = error?.response?.data?.error?.message ?? error.message ?? 'Error wiping device';
+    return new Response(JSON.stringify(message), { ...CORS_HEADERS, status });
+  }
 }
 
 // ============================================================================
-// Full device retirement sequence: retire from Intune management → remove Autopilot/
-// Entra ID device records → GLPI update → Clearpass MAC removal.
+// Full device retirement sequence: retire from Intune management → best-effort remove
+// Windows Autopilot identity → best-effort delete Entra ID device object → GLPI update
+// → Clearpass MAC removal.
 //
-// TODO: implement the Graph-specific steps:
-//   1. POST {GRAPH_BASE}/deviceManagement/managedDevices/{intuneDeviceId}/retire
-//      (unlike wipe, retire always removes MDM management; there is no reprovision option)
-//   2. If Windows Autopilot: DELETE {GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities/{autopilotId}
-//      to fully deregister from zero-touch (only if the device is being decommissioned,
-//      not repurposed — deleting this means it will need manual OOBE next time).
-//   3. DELETE {GRAPH_BASE}/devices/{azureAdDeviceId}  (Entra ID device object)
-//
-// GLPI and Clearpass steps below are reused as-is from the Jamf tool — vendor-agnostic,
-// non-fatal (a failure here must never surface as an error once Intune retire has
-// already committed).
+// Steps after the Intune retire call are all non-fatal by design: once Intune retire has
+// committed, a failure in directory cleanup or GLPI/Clearpass must never be surfaced as
+// an overall failure to the caller — same principle as the Jamf tool's own retireDevice.
 // ============================================================================
 export async function retireDevice(
   intuneDeviceId: string,
@@ -328,8 +560,60 @@ export async function retireDevice(
   macAddress?: string,
   altMacAddress?: string,
 ): Promise<{ ok: boolean; message?: string }> {
-  // TODO: replace with real Graph calls — see comment block above.
-  void intuneDeviceId;
+  const token = await getGraphToken();
+
+  // Capture the Entra ID device GUID before retiring — the managedDevice object may
+  // disappear once retired, and this is needed to clean up the Entra ID device object
+  // afterward.
+  let azureADDeviceGuid: string | null = null;
+  try {
+    const detail = await axios.get(`${GRAPH_BASE}/deviceManagement/managedDevices/${intuneDeviceId}?$select=azureADDeviceId`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    azureADDeviceGuid = detail.data.azureADDeviceId ?? null;
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'Could not read managed device detail before retire — Entra ID device cleanup may be skipped');
+  }
+
+  try {
+    await axios.post(`${GRAPH_BASE}/deviceManagement/managedDevices/${intuneDeviceId}/retire`, {}, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+  } catch (error: any) {
+    const message = error?.response?.data?.error?.message ?? error.message;
+    return { ok: false, message: `Intune retire failed: ${message}` };
+  }
+
+  // Best-effort: deregister the Windows Autopilot identity so the device doesn't
+  // silently re-enroll on next boot. Skip if the device was never Autopilot-registered
+  // (e.g. it's an Apple device, or was manually enrolled).
+  try {
+    const identity = await findAutopilotIdentityBySerial(serialNumber, token);
+    if (identity) {
+      await axios.delete(`${GRAPH_BETA}/deviceManagement/windowsAutopilotDeviceIdentities/${identity.id}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    }
+  } catch (err: any) {
+    logger.warn({ err: err.message, serialNumber }, 'Failed to delete Windows Autopilot device identity during retire — continuing');
+  }
+
+  // Best-effort: delete the Entra ID device object.
+  try {
+    if (azureADDeviceGuid) {
+      const lookup = await axios.get(`${GRAPH_BASE}/devices?$filter=deviceId eq '${escapeODataString(azureADDeviceGuid)}'`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const directoryObjectId = lookup.data.value?.[0]?.id;
+      if (directoryObjectId) {
+        await axios.delete(`${GRAPH_BASE}/devices/${directoryObjectId}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+    }
+  } catch (err: any) {
+    logger.warn({ err: err.message }, 'Failed to delete Entra ID device object during retire — continuing');
+  }
 
   // GLPI state update (non-fatal after Intune retire has already committed)
   if (GLPI_INSTANCE && GLPI_APP_TOKEN) {
@@ -369,5 +653,5 @@ export async function retireDevice(
   if (macAddress) await removeMac(macAddress);
   if (altMacAddress) await removeMac(altMacAddress);
 
-  return { ok: false, message: 'retireDevice: Graph retire/delete steps are not implemented — see TODO comment in utils.ts' };
+  return { ok: true };
 }
