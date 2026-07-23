@@ -101,6 +101,7 @@ The project does **not** ship a dedicated linter configuration, but agents shoul
 | `JAMF_INSTANCE` | Base URL of the Jamf Pro instance. | – |
 | `JAMF_CLIENT_ID` / `JAMF_CLIENT_SECRET` | Credentials for Jamf Classic API. | – |
 | `GLPI_INSTANCE` / `GLPI_APP_TOKEN` | Optional GLPI integration endpoints. | – |
+| `METRICS_TOKEN` | Optional shared secret required (as `X-Metrics-Token` header) to scrape `/metrics`. Leave unset when the endpoint is only reachable over loopback/internal network. | – |
 
 **Enabling test mode** – add `SKIP_ENTRA_AUTH=true` to the `.env` file or export it before running the server:
 ```bash
@@ -115,6 +116,7 @@ The `/api/config` endpoint will then return `{ "skipEntraAuth": true }`, and the
 
 - `client/` – Front‑end TypeScript (Alpine.js) and static assets.
 - `server/` – Bun‑based API server (`server.ts`, utility helpers, logger).
+- `server/metrics.ts` – Prometheus metrics registry (`prom-client`). Every route in `server.ts` is wrapped in `withMetrics(routeLabel, handler)`, which records `http_requests_total` / `http_request_duration_seconds` labeled by the route's *static* path pattern (never the interpolated `:param` value, to avoid label cardinality blowup). Outbound calls to Jamf/GLPI/ClearPass are recorded separately via the shared axios interceptor in `utils.ts` as `external_api_request_duration_seconds` / `external_api_errors_total`, labeled by `target` (`jamf`/`glpi`/`clearpass`/`unknown`). Scraped at `GET /metrics`, optionally gated by `METRICS_TOKEN`.
 - `Dockerfile.client` / `Dockerfile.server` – multi‑stage builds for production images.
 - `docker-compose.yml` – orchestrates both services with host networking.
 - `jest.config.js` – Jest configuration for TypeScript tests.

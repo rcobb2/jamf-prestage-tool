@@ -7,6 +7,7 @@ import { writeAudit, getAuditLog, createApproval, getPendingApprovals, resolveAp
 import * as utils from "./utils.ts";
 import { CORS_HEADERS, type JAMFResponse } from "./utils.ts";
 import { withAuth } from "./auth.ts";
+import { register, withMetrics } from "./metrics.ts";
 
 // Verified by withAuth from the caller's Entra token; X-User-Name is a legacy
 // fallback only reachable if a route is ever added without the withAuth wrapper.
@@ -29,6 +30,11 @@ const {
   GLPI_APP_TOKEN,
 
   JAMF_INSTANCE,
+
+  // Optional shared secret for scraping /metrics. Unset means the endpoint is
+  // open — fine when it's only reachable over loopback (matching how this
+  // service is published in production), but set it if that ever changes.
+  METRICS_TOKEN,
 
   SERVER_API_HOSTNAME,
   SERVER_API_PORT,
@@ -62,29 +68,29 @@ const server: Bun.Server = Bun.serve({
   } : {}),
   routes: {
     "/api/prestages": {
-      GET: withAuth(async () => {
+      GET: withMetrics('/api/prestages', withAuth(async () => {
         try {
           const prestages = await utils.getPrestages();
           return new Response(JSON.stringify(prestages), { ...CORS_HEADERS, status: 200 });
         } catch {
           return new Response('Error fetching prestages', { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/mobile-prestages": {
-      GET: withAuth(async () => {
+      GET: withMetrics('/api/mobile-prestages', withAuth(async () => {
         try {
           const prestages = await utils.getMobilePrestages();
           return new Response(JSON.stringify(prestages), { ...CORS_HEADERS, status: 200 });
         } catch {
           return new Response('Error fetching mobile prestages', { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/change-prestage/:deviceType/:prestageId/:serialNumber": {
-      POST: withAuth(async (req) => {
+      POST: withMetrics('/api/change-prestage/:deviceType/:prestageId/:serialNumber', withAuth(async (req) => {
         const { serialNumber, prestageId, deviceType } = req.params;
         logger.info(`Adding ${deviceType} device with serial number: ${serialNumber} to prestage ID: ${prestageId}`);
 
@@ -161,8 +167,8 @@ const server: Bun.Server = Bun.serve({
           logger.error('Add prestage error:', {status, data: error.response?.data});
           return new Response(`Error adding device to prestage: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
         }
-      }),
-      DELETE: withAuth(async (req) => {
+      })),
+      DELETE: withMetrics('/api/change-prestage/:deviceType/:prestageId/:serialNumber', withAuth(async (req) => {
         const { prestageId, serialNumber, deviceType } = req.params;
         logger.info(`Removing ${deviceType} device with serial number: ${serialNumber} from prestage: ${prestageId}`);
 
@@ -195,11 +201,11 @@ const server: Bun.Server = Bun.serve({
           logger.error('Remove prestage error:', {status: error.response?.status, data: error.response?.data});
           return new Response(`Error removing device from prestage: ${JSON.stringify(error.response?.data)}`, { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/buildings": {
-      GET: withAuth(async () => {
+      GET: withMetrics('/api/buildings', withAuth(async () => {
         try {
           const token = await utils.getJAMFToken();
           const pageSize = 100;
@@ -220,11 +226,11 @@ const server: Bun.Server = Bun.serve({
         } catch {
           return new Response('Failed to fetch buildings', { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/computers/:search": {
-      GET: withAuth(async (req) => {
+      GET: withMetrics('/api/computers/:search', withAuth(async (req) => {
         const { search } = req.params;
         logger.info(`[Computer Search] Incoming search for: ${search}`);
         try {
@@ -319,11 +325,11 @@ const server: Bun.Server = Bun.serve({
         } catch (error: any) {
           return new Response(`${error.message || 'Unknown error'}`, { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/mobiledevices/:search": {
-      GET: withAuth(async (req) => {
+      GET: withMetrics('/api/mobiledevices/:search', withAuth(async (req) => {
         const { search } = req.params;
         logger.info(`[Mobile Device Search] Incoming search for: ${search}`);
         try {
@@ -438,22 +444,22 @@ const server: Bun.Server = Bun.serve({
           logger.error({ err: error.message, stack: error.stack }, 'Mobile device search error');
           return new Response(`${error.message || 'Unknown error'}`, { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/wipedevice/:computerId": {
-      DELETE: withAuth(async (req) => {
+      DELETE: withMetrics('/api/wipedevice/:computerId', withAuth(async (req) => {
         const { computerId } = req.params;
         logger.info({ computerId }, 'Wiping device');
         const result = await utils.wipeDevice(computerId);
         writeAudit({ action: 'wipe', actor: getActor(req), ip: getIP(req), device_id: computerId, result: result.status === 200 ? 'success' : 'error' });
         return result;
-      })
+      }))
     },
 
     // If you want to retire a device, you need to implement your own logic. Otherwise, uncomment the 'Not Implemented' response.
     "/api/retiredevice/:computerId/:serialNumber/:macAddress/:altMacAddress": {
-      DELETE: withAuth(async (req) => {
+      DELETE: withMetrics('/api/retiredevice/:computerId/:serialNumber/:macAddress/:altMacAddress', withAuth(async (req) => {
         const { computerId, serialNumber, macAddress, altMacAddress } = req.params;
         logger.info({ computerId, serialNumber }, 'Retiring device');
 
@@ -473,11 +479,11 @@ const server: Bun.Server = Bun.serve({
           writeAudit({ action: 'retire', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, result: 'error', error_detail: String(message) });
           return new Response(message, { ...CORS_HEADERS, status });
         }
-      })
+      }))
     },
 
     "/api/update-info/:deviceType/:preloadId/:computerId": {
-      PUT: withAuth(async (req) => {
+      PUT: withMetrics('/api/update-info/:deviceType/:preloadId/:computerId', withAuth(async (req) => {
         const body = await req.json() as JAMFResponse;
         const deviceType = req.params.deviceType;
         const preloadId = decodeURIComponent(req.params.preloadId);
@@ -572,20 +578,20 @@ const server: Bun.Server = Bun.serve({
           writeAudit({ action: 'update_info', actor: getActor(req), ip: getIP(req), device_serial: serialNumber, device_id: computerId, result: 'error', error_detail: String(error.response?.data || error.message) });
           return new Response(`Error updating preload/computer information: ${JSON.stringify(error.response?.data || error.message)}`, { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/audit-log": {
-      GET: withAuth(async (req) => {
+      GET: withMetrics('/api/audit-log', withAuth(async (req) => {
         const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
         const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '100', 10) || 100, 500);
         const entries = getAuditLog(limit);
         return new Response(JSON.stringify(entries), { ...CORS_HEADERS, status: 200 });
-      })
+      }))
     },
 
     "/api/approvals": {
-      POST: withAuth(async (req) => {
+      POST: withMetrics('/api/approvals', withAuth(async (req) => {
         try {
           const body = await req.json() as { action: string; justification?: string; deviceSerial: string; deviceId?: string; deviceAssetTag?: string; payload: object };
           const { action, justification, deviceSerial, deviceId, deviceAssetTag, payload } = body;
@@ -597,18 +603,18 @@ const server: Bun.Server = Bun.serve({
         } catch (error: any) {
           return new Response(JSON.stringify({ error: error.message }), { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/approvals/pending": {
-      GET: withAuth(async () => {
+      GET: withMetrics('/api/approvals/pending', withAuth(async () => {
         const pending = getPendingApprovals();
         return new Response(JSON.stringify({ count: pending.length, items: pending }), { ...CORS_HEADERS, status: 200 });
-      })
+      }))
     },
 
     "/api/approvals/:id/approve": {
-      POST: withAuth(async (req) => {
+      POST: withMetrics('/api/approvals/:id/approve', withAuth(async (req) => {
         try {
           const id = parseInt(req.params.id, 10);
           const approver = getActor(req);
@@ -657,11 +663,11 @@ const server: Bun.Server = Bun.serve({
         } catch (error: any) {
           return new Response(JSON.stringify({ error: error.message }), { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     "/api/approvals/:id/reject": {
-      POST: withAuth(async (req) => {
+      POST: withMetrics('/api/approvals/:id/reject', withAuth(async (req) => {
         try {
           const id = parseInt(req.params.id, 10);
           const approver = getActor(req);
@@ -680,20 +686,34 @@ const server: Bun.Server = Bun.serve({
         } catch (error: any) {
           return new Response(JSON.stringify({ error: error.message }), { ...CORS_HEADERS, status: 500 });
         }
-      })
+      }))
     },
 
     // Intentionally public/unauthenticated — the client needs this before it knows
     // whether auth is even required, and it exposes no data beyond a boolean flag.
     "/api/config": {
-          async GET() {
+          GET: withMetrics('/api/config', async () => {
             const skip = process.env.SKIP_ENTRA_AUTH === 'true';
             return new Response(JSON.stringify({ skipEntraAuth: skip }), { ...CORS_HEADERS, status: 200 });
-          }
+          })
         },
         "/api/*": {
       async OPTIONS() {
         return new Response('CORS preflight', CORS_HEADERS);
+      }
+    },
+
+    // Scraped by Prometheus. Optionally gated by METRICS_TOKEN — see note above
+    // where it's read from process.env.
+    "/metrics": {
+      async GET(req: Request) {
+        if (METRICS_TOKEN && req.headers.get('X-Metrics-Token') !== METRICS_TOKEN) {
+          return new Response('Unauthorized', { status: 401 });
+        }
+        return new Response(await register.metrics(), {
+          status: 200,
+          headers: { 'Content-Type': register.contentType },
+        });
       }
     },
 
