@@ -271,9 +271,14 @@ const server: Bun.Server = Bun.serve({
                   assetTag: preload?.assetTag || 'N/A',
                   serialNumber: device.serialNumber,
                   preloadId: preload?.id || 'none',
-                  username: preload?.username || null,
-                  building: preload?.building || 'N/A',
-                  room: preload?.room || null,
+                  // Empty string, not 'N/A'/null: the client PUTs the whole record back, so
+                  // a placeholder here gets persisted as a literal value. `email` is listed
+                  // explicitly because it is a preload field like the others — omitting it
+                  // left no way to set an email on a not-yet-enrolled device.
+                  username: preload?.username ?? '',
+                  email: preload?.emailAddress ?? '',
+                  building: preload?.building ?? '',
+                  room: preload?.room ?? '',
                 };
               })
             );
@@ -375,9 +380,14 @@ const server: Bun.Server = Bun.serve({
                   assetTag: preload?.assetTag || 'N/A',
                   serialNumber: device.serialNumber,
                   preloadId: preload?.id || 'none',
-                  username: preload?.username || null,
-                  building: preload?.building || 'N/A',
-                  room: preload?.room || null,
+                  // Empty string, not 'N/A'/null: the client PUTs the whole record back, so
+                  // a placeholder here gets persisted as a literal value. `email` is listed
+                  // explicitly because it is a preload field like the others — omitting it
+                  // left no way to set an email on a not-yet-enrolled device.
+                  username: preload?.username ?? '',
+                  email: preload?.emailAddress ?? '',
+                  building: preload?.building ?? '',
+                  room: preload?.room ?? '',
                 };
               })
             );
@@ -433,11 +443,14 @@ const server: Bun.Server = Bun.serve({
                 enrollmentMethod: device.enrollmentMethod || 'No enrollment method found',
                 serialNumber: device.serialNumber,
                 currentPrestage: prestageName,
-                preloadId: preload.id,
-                username: preload.username || location.username || 'N/A',
-                email: preload.emailAddress || location.emailAddress || 'N/A',
-                building: preload.building || location.buildingId || 'N/A',
-                room: preload.room || location.room || 'N/A'
+                // ?? 'none' rather than a bare preload.id: JSON.stringify drops
+                // undefined-valued keys, which would delete the Preload ID row from the UI
+                // for any device with no preload record (same defect fixed for computers).
+                preloadId: preload.id ?? 'none',
+                username: preload.username || location.username || '',
+                email: preload.emailAddress || location.emailAddress || '',
+                building: preload.building || location.buildingId || '',
+                room: preload.room || location.room || ''
               };
             })
           );
@@ -493,7 +506,18 @@ const server: Bun.Server = Bun.serve({
         const computerId = decodeURIComponent(req.params.computerId);
         const isMobileDevice = deviceType === 'mobiledevices';
 
-        const { serialNumber, username, emailAddress, building, room, assetTag, buildingId, email } = body;
+        // Strips the 'N/A' display placeholders the search endpoints emit, so they are
+        // never persisted into Jamf as literal values. See stripPlaceholder in utils.ts.
+        const strip = utils.stripPlaceholder;
+
+        const { serialNumber, buildingId } = body;
+        const username = strip(body.username);
+        const emailAddress = strip(body.emailAddress);
+        const email = strip(body.email);
+        const building = strip(body.building);
+        const room = strip(body.room);
+        const assetTag = strip(body.assetTag);
+
         const preloadData = {
           deviceType: isMobileDevice ? 'Mobile Device' : 'Computer',
           serialNumber,

@@ -88,6 +88,15 @@ export const CORS_HEADERS: ResponseInit = {
   },
 };
 
+// The search endpoints use 'N/A' as a display placeholder for fields Jamf has no value
+// for, and the UI keys its "New JAMF Record" legend off assetTag === 'N/A', so the
+// placeholder has to survive on the read path. The client PUTs the entire record back
+// whenever any single field changes, so these have to be stripped before a write or the
+// placeholders land in Jamf as literal "N/A" values.
+export function stripPlaceholder<T>(value: T): T | '' {
+  return value === undefined || value === null || value === 'N/A' ? '' : value;
+}
+
 export type ComputerMatch = { id: number; serial_number: string; };
 
 export type JAMFResponse = {
