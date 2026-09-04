@@ -306,11 +306,19 @@ const server: Bun.Server = Bun.serve({
                   enrollmentMethod: general.enrollmentMethod?.objectName || 'No enrollment method found',
                   serialNumber: serial_number,
                   currentPrestage: prestage.displayName,
-                  preloadId: preload.id,
-                  username: preload.username,
-                  email: preload.emailAddress,
-                  building: preload.building,
-                  room: preload.room
+                  // Explicit fallbacks are load-bearing, not cosmetic: a device with no
+                  // inventory-preload record leaves `preload` as {}, and JSON.stringify
+                  // drops undefined-valued keys entirely. The client renders rows by
+                  // iterating the keys it receives, so bare `preload.x` here made the
+                  // Preload ID / Username / Email / Building / Room rows vanish from the
+                  // UI — leaving no way to enter that data for the devices that need it
+                  // most. Empty string (not 'N/A') keeps the inputs editable and the
+                  // building <select> on its placeholder option.
+                  preloadId: preload.id ?? 'none',
+                  username: preload.username ?? '',
+                  email: preload.emailAddress ?? '',
+                  building: preload.building ?? '',
+                  room: preload.room ?? ''
                 };
               })
             );
