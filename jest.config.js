@@ -4,7 +4,16 @@ export default {
   preset: 'ts-jest',
   testEnvironment: 'node',
   transform: {
-    '^.+\\.tsx?$': 'ts-jest',
+    // The server source imports with explicit .ts extensions (Bun resolves these
+    // natively). ts-jest rejects that unless allowImportingTsExtensions is on, which
+    // in turn requires noEmit — neither is set in the root tsconfig, which targets Bun.
+    '^.+\\.tsx?$': ['ts-jest', {
+      tsconfig: {
+        allowImportingTsExtensions: true,
+        noEmit: true,
+        esModuleInterop: true,
+      },
+    }],
   },
   moduleFileExtensions: ['ts', 'js', 'json', 'node'],
   // Adjust the root directory if needed

@@ -70,6 +70,8 @@ function createAlpineData() {
     pendingCount: 0,
     auditLog: [] as any[],
     auditLogOpen: false,
+    adeAlerts: [] as any[],
+    adeAlertCount: 0,
     _pollInterval: null as any,
       // SKIP_ENTRA_AUTH is inlined at build time by Bun (env: 'inline' in worker.ts)
       skipEntraAuth: process.env.SKIP_ENTRA_AUTH === 'true',
@@ -82,8 +84,11 @@ function createAlpineData() {
       // Wait for a real session before polling an authenticated endpoint —
       // otherwise this fires immediately on page load, before sign-in completes.
       await authReady;
-      await this.pollPending();
-      this._pollInterval = setInterval(() => this.pollPending(), 30000);
+      await Promise.all([this.pollPending(), this.pollADEAlerts()]);
+      this._pollInterval = setInterval(() => {
+        this.pollPending();
+        this.pollADEAlerts();
+      }, 30000);
     },
 
     async pollPending() {
@@ -91,6 +96,26 @@ function createAlpineData() {
         const resp = await axios.get('/approvals/pending');
         this.pendingApprovals = resp.data.items ?? [];
         this.pendingCount = resp.data.count ?? 0;
+      } catch { /* non-fatal */ }
+    },
+
+    async pollADEAlerts() {
+      try {
+        const resp = await axios.get('/ade-alerts?limit=100&unacknowledged=true');
+        this.adeAlerts = resp.data.items ?? [];
+        this.adeAlertCount = resp.data.count ?? 0;
+      } catch { /* non-fatal */ }
+    },
+
+    // Clears the badge. Passing no serials acknowledges everything outstanding, which is
+    // what the "Acknowledge all" button in the dialog does.
+    async acknowledgeADEAlerts(serialNumbers: string[] = []) {
+      try {
+        await axios.post('/ade-alerts/acknowledge', { serialNumbers });
+        await this.pollADEAlerts();
+        if (this.adeAlertCount === 0) {
+          (document.getElementById('adeAlertsDialog') as HTMLDialogElement).close();
+        }
       } catch { /* non-fatal */ }
     },
 

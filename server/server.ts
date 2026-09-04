@@ -1,6 +1,7 @@
 import axios from "axios";
 import logger from "./logger.ts";
-import { writeAudit, getAuditLog, createApproval, getPendingApprovals, resolveApproval } from "./db.ts";
+import { writeAudit, getAuditLog, createApproval, getPendingApprovals, resolveApproval, getADEAlerts, countUnacknowledgedADEAlerts, acknowledgeADEAlerts, getADEWatchState } from "./db.ts";
+import { startADEWatcher } from "./ade-watcher.ts";
 // dotenv import removed – environment variables are loaded via Docker env_file
 
 // dotenv config call removed – Docker injects env vars
@@ -240,13 +241,10 @@ const server: Bun.Server = Bun.serve({
 
           if (computers.length === 0) {
             // Search device enrollments if no computers found
-            const enrollmentsRes = await axios.get<{ results: any[] }>(
-              `${JAMF_INSTANCE}/api/v1/device-enrollments?page=0&page-size=100`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const enrollmentInstances = await utils.getADEInstances();
 
             const enrollmentDevices = await Promise.all(
-              enrollmentsRes.data.results.map(async (instance) => {
+              enrollmentInstances.map(async (instance) => {
                 const devices = await utils.getADEEnrolledDevices(instance.id);
                 const normalizedSearch = search.toUpperCase();
                 // Device enrollments cover ALL ADE devices (Macs, iPads, iPhones,
@@ -339,13 +337,10 @@ const server: Bun.Server = Bun.serve({
 
           if (mobileDevices.length === 0) {
             // Search device enrollments if no mobile devices found
-            const enrollmentsRes = await axios.get<{ results: any[] }>(
-              `${JAMF_INSTANCE}/api/v1/device-enrollments?page=0&page-size=100`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
+            const enrollmentInstances = await utils.getADEInstances();
 
             const enrollmentDevices = await Promise.all(
-              enrollmentsRes.data.results.map(async (instance) => {
+              enrollmentInstances.map(async (instance) => {
                 const devices = await utils.getADEEnrolledDevices(instance.id);
                 const normalizedSearch = search.toUpperCase();
                 // Device enrollments cover ALL ADE devices — keep only mobile
@@ -590,6 +585,40 @@ const server: Bun.Server = Bun.serve({
       }))
     },
 
+    "/api/ade-alerts": {
+      GET: withMetrics('/api/ade-alerts', withAuth(async (req) => {
+        const url = new URL(req.url, `http://${req.headers.get('host') || 'localhost'}`);
+        const limit = Math.min(parseInt(url.searchParams.get('limit') ?? '100', 10) || 100, 500);
+        const unacknowledgedOnly = url.searchParams.get('unacknowledged') === 'true';
+        const items = getADEAlerts({ limit, unacknowledgedOnly });
+        return new Response(
+          JSON.stringify({ count: countUnacknowledgedADEAlerts(), items, watchState: getADEWatchState() }),
+          { ...CORS_HEADERS, status: 200 }
+        );
+      }))
+    },
+
+    "/api/ade-alerts/acknowledge": {
+      POST: withMetrics('/api/ade-alerts/acknowledge', withAuth(async (req) => {
+        try {
+          // An empty/absent body acknowledges every outstanding alert ("mark all read").
+          const body = await req.json().catch(() => ({})) as { serialNumbers?: unknown };
+          const serials = Array.isArray(body?.serialNumbers)
+            ? body.serialNumbers.filter((s): s is string => typeof s === 'string')
+            : [];
+          const actor = getActor(req);
+          const acknowledged = acknowledgeADEAlerts(serials, actor);
+          logger.info({ actor, acknowledged, serials: serials.length || 'all' }, 'ADE alerts acknowledged');
+          return new Response(
+            JSON.stringify({ acknowledged, count: countUnacknowledgedADEAlerts() }),
+            { ...CORS_HEADERS, status: 200 }
+          );
+        } catch (error: any) {
+          return new Response(JSON.stringify({ error: error.message }), { ...CORS_HEADERS, status: 500 });
+        }
+      }))
+    },
+
     "/api/approvals": {
       POST: withMetrics('/api/approvals', withAuth(async (req) => {
         try {
@@ -727,3 +756,6 @@ const server: Bun.Server = Bun.serve({
 
 console.log(`Bun version: ${Bun.version_with_sha}`);
 console.log(`Server listening on ${server.url}`);
+
+// Started after Bun.serve so a slow first sweep never delays the server binding its port.
+startADEWatcher();

@@ -90,6 +90,9 @@
           <button x-show="pendingCount > 0" @click="approvalsPanel.open = true; pollPending(); (document.getElementById('approvalsDialog')).showModal()" class="btn btn-sm btn-warning">
             ⚠ <span x-text="pendingCount"></span> Pending
           </button>
+          <button x-show="adeAlertCount > 0" @click="pollADEAlerts(); (document.getElementById('adeAlertsDialog')).showModal()" class="btn btn-sm btn-info">
+            🆕 <span x-text="adeAlertCount"></span> New in ASM/ABM
+          </button>
           <button x-show="!$store.skipEntraAuth" @click="signOut()" class="btn btn-soft btn-accent hover:bg-accent/50">Sign Out</button>
         </div>
       </header>
@@ -270,6 +273,53 @@
       </template>
       <p x-show="approvalsPanel.error" class="text-error text-sm mt-2" x-text="approvalsPanel.error"></p>
       <div class="modal-action">
+        <form method="dialog"><button class="btn">Close</button></form>
+      </div>
+    </div>
+    <form method="dialog" class="modal-backdrop"><button>close</button></form>
+  </dialog>
+
+  <!-- New ADE (Apple School/Business Manager) devices dialog -->
+  <dialog id="adeAlertsDialog" class="modal">
+    <div class="modal-box w-11/12 max-w-4xl">
+      <h3 class="font-bold text-lg mb-1">New Devices in Apple School/Business Manager</h3>
+      <p class="text-xs opacity-70 mb-4">
+        Detected when the device appears in Jamf's ADE list, which syncs from Apple on its own schedule.
+      </p>
+      <div class="overflow-x-auto max-h-96">
+        <table class="table table-xs table-zebra w-full">
+          <thead>
+            <tr>
+              <th>Detected</th>
+              <th>Serial</th>
+              <th>Model</th>
+              <th>Asset Tag</th>
+              <th>Enrollment Instance</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            <template x-for="device in adeAlerts" :key="device.instance_id + ':' + device.serial_number">
+              <tr>
+                <td class="font-mono text-xs" x-text="device.first_seen_at"></td>
+                <td class="font-mono text-xs font-bold" x-text="device.serial_number"></td>
+                <td x-text="device.model ?? device.description ?? '—'"></td>
+                <td x-text="device.asset_tag ?? '—'"></td>
+                <td x-text="device.instance_name ?? device.instance_id"></td>
+                <td>
+                  <button @click="searchData = device.serial_number; searchType = 'computers'; search(); (document.getElementById('adeAlertsDialog')).close()"
+                          class="btn btn-xs btn-ghost">Look up</button>
+                </td>
+              </tr>
+            </template>
+            <tr x-show="adeAlerts.length === 0">
+              <td colspan="6" class="text-center opacity-60">No new devices.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="modal-action">
+        <button x-show="adeAlerts.length > 0" @click="acknowledgeADEAlerts()" class="btn btn-info">Acknowledge All</button>
         <form method="dialog"><button class="btn">Close</button></form>
       </div>
     </div>

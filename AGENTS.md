@@ -102,6 +102,11 @@ The project does **not** ship a dedicated linter configuration, but agents shoul
 | `JAMF_CLIENT_ID` / `JAMF_CLIENT_SECRET` | Credentials for Jamf Classic API. | – |
 | `GLPI_INSTANCE` / `GLPI_APP_TOKEN` | Optional GLPI integration endpoints. | – |
 | `METRICS_TOKEN` | Optional shared secret required (as `X-Metrics-Token` header) to scrape `/metrics`. Leave unset when the endpoint is only reachable over loopback/internal network. | – |
+| `AUDIT_DB_PATH` | SQLite file holding the audit log, approvals, and the ADE watcher's seen-set. Must be on persistent storage. | `/app/audit.db` |
+| `ADE_WATCH_ENABLED` | Set to `'false'` to disable the ADE watcher background poller. | `true` |
+| `ADE_WATCH_INTERVAL_MINUTES` | Minutes between ADE sweeps (floored at 1). | `15` |
+| `ADE_ALERT_WEBHOOK_URL` | Optional Google Chat/Teams/Slack/Discord incoming webhook for new-device alerts. Unset ⇒ in-app alerts only. | – |
+| `ADE_ALERT_WEBHOOK_FORMAT` | Force the webhook payload shape: `google-chat`, `teams`, `teams-workflow`, `slack`, `discord`, `json`. Auto-detected from the URL when unset. | *(auto)* |
 
 **Enabling test mode** – add `SKIP_ENTRA_AUTH=true` to the `.env` file or export it before running the server:
 ```bash
@@ -114,9 +119,27 @@ The `/api/config` endpoint will then return `{ "skipEntraAuth": true }`, and the
 
 ## 6️⃣ Project Structure Overview
 
-- `client/` – Front‑end TypeScript (Alpine.js) and static assets.
-- `server/` – Bun‑based API server (`server.ts`, utility helpers, logger).
-- `server/metrics.ts` – Prometheus metrics registry (`prom-client`). Every route in `server.ts` is wrapped in `withMetrics(routeLabel, handler)`, which records `http_requests_total` / `http_request_duration_seconds` labeled by the route's *static* path pattern (never the interpolated `:param` value, to avoid label cardinality blowup). Outbound calls to Jamf/GLPI/ClearPass are recorded separately via the shared axios interceptor in `utils.ts` as `external_api_request_duration_seconds` / `external_api_errors_total`, labeled by `target` (`jamf`/`glpi`/`clearpass`/`unknown`). Scraped at `GET /metrics`, optionally gated by `METRICS_TOKEN`.
+- `client/` – Front‑end TypeScript (Alpine.js) and static assets. `worker.ts` is the static file
+  server *and* the client build script: it `Bun.build`s `client/main.ts` → `client/main.js` on
+  startup. (The `bun run client` script in `package.json` points at a non‑existent `client/app.ts`
+  and is stale — `worker.ts` is the real entry point.)
+- `server/` – Bun‑based API server:
+  - `server.ts` – routes and `Bun.serve`
+  - `utils.ts` – Jamf/GLPI/Clearpass API helpers
+  - `db.ts` – SQLite (audit log, approvals, ADE seen‑set)
+  - `auth.ts` – Entra token verification (`withAuth`)
+  - `ade-watcher.ts` – background poller alerting on new ADE devices
+  - `ade-alerts.ts` – pure diff + chat‑payload logic, dependency‑free so Jest can test it
+    without `bun:sqlite`
+  - `logger.ts` – pino
+  - `metrics.ts` – Prometheus metrics registry (`prom-client`). Every route in `server.ts` is
+    wrapped in `withMetrics(routeLabel, handler)`, which records `http_requests_total` /
+    `http_request_duration_seconds` labeled by the route's *static* path pattern (never the
+    interpolated `:param` value, to avoid label cardinality blowup). Outbound calls to
+    Jamf/GLPI/ClearPass are recorded separately via the shared axios interceptor in `utils.ts`
+    as `external_api_request_duration_seconds` / `external_api_errors_total`, labeled by
+    `target` (`jamf`/`glpi`/`clearpass`/`unknown`). Scraped at `GET /metrics`, optionally gated
+    by `METRICS_TOKEN`.
 - `Dockerfile.client` / `Dockerfile.server` – multi‑stage builds for production images.
 - `docker-compose.yml` – orchestrates both services with host networking.
 - `jest.config.js` – Jest configuration for TypeScript tests.

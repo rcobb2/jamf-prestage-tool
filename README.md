@@ -74,6 +74,12 @@ SERVER_API_PORT=8443                                           # Port you want f
 JAMF_INSTANCE=https://constoso.jamfcloud.com                   # Base JAMF URL e.g. https://constoso.jamfcloud.com
 JAMF_CLIENT_ID=your_jamf_client_ID_here                        # JAMF API Client ID (example UUID)
 JAMF_CLIENT_SECRET=your_jamf_client_secret_here                # JAMF API Client Secret
+
+# ADE Watcher (new devices in Apple School/Business Manager)
+ADE_WATCH_ENABLED=true                                         # Set to 'false' to turn the watcher off entirely
+ADE_WATCH_INTERVAL_MINUTES=15                                  # How often to sweep your device-enrollment instances
+ADE_ALERT_WEBHOOK_URL=                                         # Optional chat webhook (Google Chat / Teams / Slack / Discord). Leave blank for in-app alerts only
+ADE_ALERT_WEBHOOK_FORMAT=                                      # Optional override: google-chat | teams | teams-workflow | slack | discord | json (auto-detected from the URL)
 ```
 
 ## JAMF Setup
@@ -81,6 +87,8 @@ Create an API role in Jamf Pro with the privileges listed below, then create a n
 
 JAMF API role privileges:
 Update Static Computer Groups, Read Computer Security, Read Computers, Update Computer Security, Read Static Computer Groups, Read Re-enrollment, Update Computer Inventory Collection, View Local Admin Password Audit History, Update Computer Extension Attributes, Delete Computers, Read Computer Inventory Collection Settings, Update Computers, Update Smart Computer Groups, Update Computer Inventory Collection Settings, Update Local Admin Password Settings, Read Computer Enrollment Invitations, Read Computer PreStage Enrollments, Read Webhooks, Read User Extension Attributes, Update Smart User Groups, Read Computer Check-In, Read Static Mobile Device Groups, Read Static User Groups, Update Computer Enrollment Invitations, View Local Admin Password, Read Smart Computer Groups, Read Computer Inventory Collection, Update Smart Mobile Device Groups, Read Smart Mobile Device Groups, Update Computer Check-In, Read Computer Extension Attributes, Read Smart User Groups, Read Software Update Servers, Update Computer PreStage Enrollments
+
+The ADE-related features (the device-enrollment fallback search and the ADE watcher) additionally require the privilege granting read access to your Automated Device Enrollment / DEP instances. The exact label varies by Jamf Pro version — look for the "Automated Device Enrollment" (older: "Device Enrollment Program") entry in the API role privilege picker. If the fallback search already works for you, your role has it.
 
 ## Customization
 1. **Logo & Branding**
@@ -135,6 +143,76 @@ At the bottom, you’ll find a dropdown with your available prestages. To assign
 **Update Preload Information:**
 This updates both the preload and inventory records if the device is already enrolled. If not, only the preload record is updated and you’ll be notified.
 
+
+### ADE Watcher — alerts for new devices in Apple School/Business Manager
+The server polls every Automated Device Enrollment instance on a timer and alerts you when a
+serial number appears that it hasn't seen before — typically a newly purchased device that Apple
+has just assigned to your organization.
+
+**What it does on each sweep**
+1. Lists your device-enrollment instances (`/api/v1/device-enrollments`).
+2. Fetches every assigned device for each instance, paginating in full.
+3. Diffs the serial numbers against a local seen-set stored in the SQLite database.
+4. For anything new: records it, writes an `ade_device_added` audit-log entry, and posts a single
+   grouped message to your chat webhook.
+
+**Alerts land in two places**
+- **In-app** — a "New in ASM/ABM" badge appears in the header. Opening it lists each device with
+  its serial, model, Apple asset tag, and enrollment instance, plus a **Look up** shortcut that
+  runs a search for that serial. **Acknowledge All** clears the badge.
+- **Chat** — set `ADE_ALERT_WEBHOOK_URL` to a Google Chat, Microsoft Teams, Slack, or Discord incoming webhook.
+  The payload shape is auto-detected from the URL; override it with `ADE_ALERT_WEBHOOK_FORMAT` if
+  you route the webhook through a proxy. If the webhook is unset or failing, in-app alerts still work.
+
+  | Webhook host | Format | Envelope |
+  |---|---|---|
+  | `chat.googleapis.com` | `google-chat` | Message resource — `text` only (Google Chat 400s on unknown fields) |
+  | `hooks.slack.com` | `slack` | `text` + block-kit blocks |
+  | `*.logic.azure.com` | `teams-workflow` | Adaptive Card attachment (Power Automate) |
+  | `webhook.office.com` | `teams` | Legacy MessageCard (retired O365 connectors) |
+  | `discord.com/api/webhooks` | `discord` | `content`, capped at 2000 chars |
+  | anything else | `json` | `{ title, count, text, devices }` |
+
+**The first sweep is silent.** When the watcher sees an enrollment instance for the first time it
+records every device already there as a baseline and emits no alerts — otherwise a fresh deployment
+would fire one alert per device in your entire organization. Only devices that appear *after* that
+baseline are treated as new.
+
+The seen-set lives in the same SQLite file as the audit log (`AUDIT_DB_PATH`, default `/app/audit.db`,
+which `docker-compose.yml` bind-mounts to `server/audit.db` on the host). Keep that file on
+persistent storage — if it is lost, the watcher re-seeds a fresh baseline and any devices added
+in the interim are silently absorbed into it rather than alerted on.
+
+**Forcing a re-seed.** If a baseline was recorded incompletely (for example a Jamf hiccup during the
+very first sweep truncated the device list), delete that instance's row and the next sweep will
+re-seed it from scratch:
+
+```sql
+DELETE FROM ade_watch_state WHERE instance_id = '<id>';
+DELETE FROM ade_devices     WHERE instance_id = '<id>';
+```
+
+Delete both — leaving `ade_devices` rows in place would keep the stale seen-set. Note that a
+re-seed is silent by design, so anything added since the bad baseline will be absorbed into the
+new one rather than alerted on.
+
+The watcher sweeps immediately at process start rather than waiting out the first interval, so a
+fresh deployment establishes its baseline right away. That means a crash-restart loop re-runs a
+full sweep each time — cheap in database terms, but not in Jamf API calls. If you are debugging
+a restart loop on a large tenant, set `ADE_WATCH_ENABLED=false` until it is stable.
+
+**A note on timing:** this detects when a device appears in *Jamf's* ADE list, which Jamf syncs from
+Apple on its own schedule. Alerts therefore lag the actual Apple School/Business Manager change by
+that sync interval plus up to `ADE_WATCH_INTERVAL_MINUTES`. The watcher does not trigger Jamf-to-Apple
+syncs itself.
+
+**Scope:** additions only. Device removals and reassignments between enrollment instances are not
+currently detected.
+
+> Jamf Pro also offers a `DeviceAddedToDEP` outbound webhook, which would make alerts near-instant.
+> It is not used here because it requires a publicly reachable endpoint authenticated by a shared
+> secret rather than Entra ID, which conflicts with this server's "every route requires a verified
+> Entra token" model. Polling needs no inbound exposure.
 
 ## Reliability improvements – retry logic
 The tool now automatically retries transient network errors and server‑side (5xx) failures up to three times with exponential back‑off. This is powered by the `axios-retry` library and applies to all Jamf API calls (including token acquisition, device assignment, and removal). No additional configuration is required.
