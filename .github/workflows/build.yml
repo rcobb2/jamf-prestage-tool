@@ -1,0 +1,45 @@
+name: Build and publish container images
+
+# Builds the client/server images and publishes them to GHCR, tagged with
+# the commit SHA (immutable — never :latest) so a deploy can pin an exact,
+# reproducible image. Runs entirely on GitHub-hosted runners: this repo is
+# public, so it deliberately has NO self-hosted runner and NO deploy
+# secrets — see rcobb2/jamf-prestage-tool-deploy (private) for the actual
+# deploy step, which just bumps the tag referenced there.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image:
+          - name: jamf-prestage-client
+            dockerfile: Dockerfile.client
+          - name: jamf-prestage-server
+            dockerfile: Dockerfile.server
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.image.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.image.dockerfile }}
+          push: true
+          tags: |
+            ghcr.io/rcobb2/${{ matrix.image.name }}:${{ github.sha }}
+            ghcr.io/rcobb2/${{ matrix.image.name }}:latest
